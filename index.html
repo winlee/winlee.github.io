@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   
   
-  <title>Hexo</title>
+  <title>xing&#39;s blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta property="og:type" content="website">
-<meta property="og:title" content="Hexo">
+<meta property="og:title" content="xing&#39;s blog">
 <meta property="og:url" content="http://example.com/index.html">
-<meta property="og:site_name" content="Hexo">
+<meta property="og:site_name" content="xing&#39;s blog">
 <meta property="og:locale" content="en_US">
-<meta property="article:author" content="John Doe">
+<meta property="article:author" content="Li Zhengxing">
 <meta name="twitter:card" content="summary">
   
-    <link rel="alternate" href="/atom.xml" title="Hexo" type="application/atom+xml">
+    <link rel="alternate" href="/atom.xml" title="xing's blog" type="application/atom+xml">
   
   
     <link rel="shortcut icon" href="/favicon.png">
@@ -42,7 +42,7 @@
   <div id="header-outer" class="outer">
     <div id="header-title" class="inner">
       <h1 id="logo-wrap">
-        <a href="/" id="logo">Hexo</a>
+        <a href="/" id="logo">xing&#39;s blog</a>
       </h1>
       
     </div>
@@ -93,7 +93,24 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        
+        <h2 id="架构原则：4要1不要"><a href="#架构原则：4要1不要" class="headerlink" title="架构原则：4要1不要"></a>架构原则：4要1不要</h2><p> 1  数据要尽量少</p>
+<p> 用户请求的数据能少就少，请求的数据包括上传给系统的数据和系统返回给用户的数据（通常就是网页）</p>
+<blockquote>
+<p>原因</p>
+</blockquote>
+<blockquote>
+<ol>
+<li>数据在网络传输上需要时间，往返都需要服务器做处理，同时写网络时需要做压缩，和字符编码，这些都非常消耗CPU，所以减少传输的数量可以显著减少CPU的使用。示例：简化秒杀页面的大小，去掉不必要的页面效果等</li>
+<li>数据能少就少还要求系统依赖的数据能少就少，包括系统完成某些业务逻辑需要读取和保存的数据，这些数据一般是和后台服务以及数据库打交道的，调用其他服务会涉及数据的序列化和反序列化，而这也是CPU的一大杀手，同样会增加延时。而且DB本身也容易成为瓶颈，所以和DB打交道越少越好，数据越简单，越小则越好</li>
+</ol>
+</blockquote>
+<ol start="2">
+<li>请求数据要尽量少</li>
+<li>路径要尽量短，路径指的用户发出请求到返回数据这个过程中，需求经过的中间的节点数</li>
+<li>依赖要尽量少， 就是指完成一次请求必须依赖的系统和服务尽量少，可以对依赖服务和系统进行分级，尽量减少不必要的依赖，极端情况可以降级部分弱依赖服务</li>
+<li>不要有单点，单点意味没有备份，风险不可控<br> 5.1. 避免将服务状态和机器绑定，即把服务无状态化<br> 5.2. 像DB这种很难无状态化的，一般通过冗余多个备份的方式解决单点问题</li>
+</ol>
+
       
     </div>
     <footer class="article-footer">
@@ -211,7 +228,7 @@
   <div class="outer">
     <div id="footer-info" class="inner">
       
-      &copy; 2021 John Doe<br>
+      &copy; 2021 Li Zhengxing<br>
       Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
     </div>
   </div>
