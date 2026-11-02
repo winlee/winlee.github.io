@@ -193,13 +193,26 @@ func NotifyContext(parent context.Context, signals ...os.Signal) (ctx context.Co
 
 轮询而不是事件通知，换来的是实现简单：每次检查都重新统计活跃连接，因此关闭期间的连接变化不需要额外同步。代价是关闭完成有一定延迟（最多约一个轮询周期），这也是 `Shutdown` 返回值不宜用来精确判断“何时完全停止”的原因。
 
-## 6. 实践探讨与常见坑
+## 6. Kubernetes 终止流程与信号语义
 
-### 超时设置要与平台对齐
+容器平台上的下线不是"发一个信号"这么简单，而是"摘流 + 等待 + 信号 + 兜底"的组合。理解信号语义，才能把 `preStop`、宽限期和进程内收尾安排明白。
 
-优雅关闭的超时应当**小于**平台的强制终止时间。以 Kubernetes 为例，默认 `terminationGracePeriodSeconds` 是 30 秒，如果 `Shutdown` 也等 30 秒，进程很可能在收尾阶段被 SIGKILL，连日志都写不完。实践上留出余量，比如 10 到 20 秒。
+### SIGTERM 与 SIGKILL
 
-同时，容器里还需要处理“信号已发出但负载均衡还没摘除”的窗口期，常见做法是加一个 `preStop` 延迟：
+| 信号 | 编号 | 能否捕获 | 语义 |
+|---|---|---|---|
+| `SIGTERM` | 15 | 可以捕获 | "请求你退出"，进程可以自行决定何时退出，因此可以等待 |
+| `SIGKILL` | 9 | 不可捕获、不可忽略 | 内核直接终止进程，没有任何清理机会，不会等待 |
+
+### 完整终止顺序
+
+1. Pod 状态变为 `Terminating`，同时从 Service endpoints 中摘除（异步进行，可能比信号更晚完成）；
+2. 执行 `preStop` hook（如果配置了），耗时计入宽限期；
+3. 向容器内的 **PID 1** 发送 `SIGTERM`；
+4. 应用捕获 `SIGTERM`，开始优雅关闭：停监听、等存量请求、关连接；
+5. 宽限期（`terminationGracePeriodSeconds`）到期仍未退出，kubelet 发送 `SIGKILL`，进程立即死亡。
+
+`preStop` 与 `SIGTERM` 是**串行**的：`preStop` 执行完毕才会发信号。宽限期从 Pod 开始终止时计时，`preStop` 里的 sleep 同样占用这段时间。
 
 ```yaml
 lifecycle:
@@ -208,6 +221,48 @@ lifecycle:
       command: ["/bin/sh", "-c", "sleep 5"]
 terminationGracePeriodSeconds: 30
 ```
+
+上面这个配置意味着：应用真正可用于收尾的时间约为 25 秒，而不是 30 秒。
+
+### 信号是发给 PID 1 的
+
+如果 entrypoint 写成 `sh -c "./app"` 而没有使用 `exec`，应用就不是 PID 1，`SIGTERM` 不会被转发，应用永远收不到信号，只能等 `SIGKILL`。这类问题的表现是"优雅退出代码写了但从不执行"。
+
+```dockerfile
+# 错误：shell 成为 PID 1，信号不会转发给 app
+CMD ./app
+
+# 正确：exec 让 app 替换 shell，成为 PID 1
+CMD ["/app"]
+```
+
+### 镜像可以覆盖停止信号
+
+Dockerfile 的 `STOPSIGNAL` 会改变运行时发送的终止信号。例如 nginx 官方镜像使用 `SIGQUIT` 做优雅退出：
+
+```dockerfile
+STOPSIGNAL SIGQUIT
+```
+
+此时 Kubernetes 下发的就不是 `SIGTERM` 了。排查"信号处理没生效"时，先确认镜像声明的停止信号。
+
+### `SIGINT` 的定位
+
+`SIGINT` 是终端里 `Ctrl+C` 触发的信号，Kubernetes **不会**发送它。本地开发时同时监听 `os.Interrupt` 和 `syscall.SIGTERM` 是常见做法，线上真正起作用的是 `SIGTERM`。
+
+### 三者的分工
+
+- `preStop`：解决"信号已发出，但流量还没摘干净"的竞态，通常就是短 sleep 或调用下线接口；
+- `SIGTERM`：解决"进程内部如何有序收尾"，业务逻辑写在这里；
+- `SIGKILL`：兜底，保证进程最终一定会死，所以收尾必须在宽限期内完成。
+
+需要强调的是：`SIGTERM` 的"等待"不是信号本身在等，而是**进程捕获后主动延长了退出时间**；`SIGKILL` 的"不等待"则是因为内核直接终止进程，用户态没有任何执行机会。
+
+## 7. 实践探讨与常见坑
+
+### 超时设置要与平台对齐
+
+优雅关闭的超时应当**小于**平台的强制终止时间。以 Kubernetes 为例，默认 `terminationGracePeriodSeconds` 是 30 秒，再减去 `preStop` 的耗时；如果 `Shutdown` 也按 30 秒等，进程很可能在收尾阶段被 `SIGKILL`，连日志都写不完。实践上留出余量，比如 10 到 20 秒。
 
 ### 二次信号：要么强制退出，要么恢复默认
 
@@ -257,11 +312,13 @@ stop() // 之后再次 Ctrl+C 直接终止
 
 `Shutdown` 可能被多个路径触发（信号、健康检查失败、管理接口）。用一个 `sync.Once` 或原子标志包住整个关闭流程，避免重复关停导致日志混乱或二次关闭错误。
 
-## 7. 参考文档
+## 8. 参考文档
 
 - [Go 语言规范之外：os/signal 包文档](https://pkg.go.dev/os/signal)
 - [os/signal.NotifyContext 源码（Go 1.25）](https://github.com/golang/go/blob/go1.25.12/src/os/signal/signal.go)
 - [net/http.Server.Shutdown 文档](https://pkg.go.dev/net/http#Server.Shutdown)
 - [net/http 服务端源码（Go 1.25）](https://github.com/golang/go/blob/go1.25.12/src/net/http/server.go)
 - [Go 博客：Contexts and Cancellation](https://go.dev/blog/context)
+- [Linux signal(7)：信号语义与默认行为](https://man7.org/linux/man-pages/man7/signal.7.html)
+- [Docker 文档：STOPSIGNAL](https://docs.docker.com/reference/dockerfile/#stopsignal)
 - [Kubernetes 文档：Pod 生命周期与优雅终止](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination)
