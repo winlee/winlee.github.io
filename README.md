@@ -1,6 +1,6 @@
 # winlee.github.io
 
-个人技术博客，基于 Hexo + [hexo-theme-typo](https://github.com/rankangkang/hexo-theme-typo)，发布在 <https://winlee.github.io>。
+个人技术博客，基于 Hexo + [hexo-theme-keep](https://github.com/XPoet/hexo-theme-keep)，发布在 <https://winlee.github.io>。
 
 ## 分支说明
 
@@ -15,14 +15,16 @@
 
 ```text
 _config.yml          # Hexo 主配置（站点信息、permalink、deploy）
-_config.typo.yml     # 主题配置覆盖（标题、菜单、分类下拉）
+_config.keep.yml     # Keep 主题配置覆盖（品牌、菜单、首屏、文章功能）
 scaffolds/           # 新建文章/页面的模板
 source/
   _posts/            # 文章 markdown
-  categories/        # 各分类的列表页
+  categories/        # 分类索引页；分类详情由 hexo-generator-category 生成
+  tags/              # 标签索引页；标签详情由 hexo-generator-tag 生成
   about/             # 关于页
+  favicon.svg        # 站点自定义标识
   .nojekyll          # 跳过 Jekyll（随产物复制到 public/）
-themes/typo/         # 内置主题（含自定义的分类下拉和 category 布局）
+node_modules/hexo-theme-keep/ # Keep 官方主题 npm 包（不提交）
 public/              # 生成产物（不提交）
 ```
 
@@ -55,14 +57,18 @@ tags:
 
 `date` 决定永久链接（`/YYYY/MM/DD/<title>/`），文件名中的日期只是标记。
 
-## 分类
+## 分类与标签
 
-固定分类：`go`、`mysql`、`redis`、`kafka`、`leetcode`，由两处定义：
+文章 front matter 中通过 `categories` 和 `tags` 设置分类与标签：
 
-1. `source/categories/<cat>/index.md`——分类列表页（`layout: category`）
-2. `_config.typo.yml` 的 `categories_menu`——导航下拉项
+```yaml
+categories:
+  - go
+tags:
+  - Go
+```
 
-`hexo-generator-category` 未安装，新分类必须手动建页，否则链接 404。分类页会自动列出 `categories: [<cat>]` 的文章。
+Keep 主题按 `source/categories/index.md`、`source/tags/index.md` 提供索引页；`hexo-generator-category` 和 `hexo-generator-tag` 自动生成具体分类与标签页面。新增分类不需要手工建分类目录页。
 
 ## 发布
 

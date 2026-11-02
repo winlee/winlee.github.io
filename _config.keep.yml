@@ -1,0 +1,79 @@
+base_info:
+  primary_color: "#b84c4b"
+  title: Xing's Blog
+  author: Li Zhengxing
+  avatar:
+  logo: /favicon.svg
+  favicon: /favicon.svg
+
+menu:
+  home: /
+  archives: /archives
+  categories: /categories
+  tags: /tags
+  about: /about
+
+first_screen:
+  enable: true
+  background_img: /images/bg.svg
+  background_img_dark: /images/bg.svg
+  description: Go 后端、AI Agent 与工程实践
+  hitokoto: false
+
+social_contact:
+  enable: true
+  links:
+    github: https://github.com/winlee
+
+scroll:
+  progress_bar: true
+  percent: false
+  hide_header: false
+
+home:
+  category: true
+  tag: true
+  post_datetime: created
+
+post:
+  author_badge:
+    enable: false
+  word_count:
+    word: false
+    min2read: true
+  datetime_format: "YYYY-MM-DD"
+  copyright_info: false
+  share: false
+  reward:
+    enable: false
+
+code_block:
+  tools:
+    enable: true
+    style: mac
+  highlight_theme: default
+
+toc:
+  enable: true
+  number: true
+  expand_all: true
+  init_open: true
+  layout: right
+
+local_search:
+  enable: true
+  preload: false
+
+website_count:
+  busuanzi_count:
+    enable: false
+
+footer:
+  since: 2013
+  word_count: false
+
+rss:
+  enable: false
+
+inject:
+  enable: false
