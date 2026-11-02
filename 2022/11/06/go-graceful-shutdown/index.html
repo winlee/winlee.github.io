@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+  <title>
+    
+    Go 的优雅退出实现与探讨 丨
+    
+
+    Xing&#39;s Blog
+  </title>
+
+  
+  <link rel="shortcut icon" href="/icon.svg">
+  
+
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  
+  <link id="theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
+  <script src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
+  
+
+  <!-- 字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+
+  
+<link rel="stylesheet" href="/css/root.css">
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/post.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <header class="header">
+  <section class="header-container">
+    <a class="logo" href="/">Xing&#39;s Blog</a>
+    <ul class="nav">
+      
+      <li class="nav-dropdown">
+        <details>
+          <summary class="nav-dropdown-toggle">分类</summary>
+        <ul class="nav-dropdown-menu">
+          
+          <li><a href="/categories/go/">go</a></li>
+          
+          <li><a href="/categories/mysql/">mysql</a></li>
+          
+          <li><a href="/categories/redis/">redis</a></li>
+          
+          <li><a href="/categories/kafka/">kafka</a></li>
+          
+          <li><a href="/categories/leetcode/">leetcode</a></li>
+          
+        </ul>
+        </details>
+      </li>
+      
+      
+      <li><a href="/archives">Archives</a></li>
+      
+      <li><a href="/about">About</a></li>
+      
+    </ul>
+  </section>
+</header>
+  <main class="main">
+    <article class="post">
+  
+  <div class="post-title">Go 的优雅退出实现与探讨</div>
+  <div class="post-meta">
+    <div class="date">2022 十一月 6日</div>
+    <div class="tags">
+      
+      <div class="tag-item">Go</div>
+      
+      <div class="tag-item">优雅退出</div>
+      
+      <div class="tag-item">signal</div>
+      
+    </div>
+  </div>
+  
+
+  <main class="post-content"><p>服务进程收到的终止信号通常来自人工 <code>Ctrl+C</code>、系统的 <code>kill</code>、容器编排平台或进程管理器。如果直接退出，正在处理的请求会被切断，缓冲中的数据、未提交的事务、未确认的消息都可能丢失。优雅退出要解决的问题是：<strong>停止接收新工作、处理完手头工作、按正确顺序释放资源，最后退出</strong>。</p>
+<p>本文先给出可直接使用的实现，再分析标准库的机制，最后讨论实践中容易踩的坑。</p>
+<h2 id="1-什么是优雅退出"><a href="#1-什么是优雅退出" class="headerlink" title="1. 什么是优雅退出"></a>1. 什么是优雅退出</h2><p>一个可用的优雅退出至少包含四件事：</p>
+<ol>
+<li><strong>停止接收新请求</strong>：关闭监听端口，不再 accept 新连接；</li>
+<li><strong>等待存量工作完成</strong>：让进行中的 HTTP 请求、后台任务、消息处理跑完；</li>
+<li><strong>按依赖顺序释放资源</strong>：先停入口，再停消费者，最后关数据源；</li>
+<li><strong>有兜底</strong>：超过设定时间仍未结束，就强制退出，避免进程永久挂住。</li>
+</ol>
+<p>“优雅”不等于“无限等待”。没有超时的优雅退出，可能把发布流程卡死，最终由平台强制杀掉，效果还不如直接退出。</p>
+<h2 id="2-基础实现：信号-context"><a href="#2-基础实现：信号-context" class="headerlink" title="2. 基础实现：信号 + context"></a>2. 基础实现：信号 + context</h2><p>Go 标准库从 1.16 起提供 <code>signal.NotifyContext</code>，把信号转换为 context 取消，是最简洁的入口方式：</p>
+<pre><code class="highlight go"><span class="keyword">package</span> main
+
+<span class="keyword">import</span> (
+    <span class="string">&quot;context&quot;</span>
+    <span class="string">&quot;log&quot;</span>
+    <span class="string">&quot;os&quot;</span>
+    <span class="string">&quot;os/signal&quot;</span>
+    <span class="string">&quot;syscall&quot;</span>
+)
+
+<span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    <span class="keyword">defer</span> stop()
+
+    <span class="keyword">go</span> runServer()
+
+    &lt;-ctx.Done()
+    log.Println(<span class="string">&quot;收到退出信号，开始关闭&quot;</span>)
+    stop() <span class="comment">// 恢复信号默认行为，此后的信号会直接终止进程</span>
+&#125;</code></pre>
+
+<p><code>os.Interrupt</code> 对应 <code>Ctrl+C</code>（<code>SIGINT</code>），<code>syscall.SIGTERM</code> 是 <code>kill</code> 与容器平台停止容器时发送的信号。两者都应该监听。</p>
+<p><code>stop()</code> 除了释放资源，还有一个实际作用：调用后信号处理恢复默认行为，用户在关闭卡住时再按一次 <code>Ctrl+C</code> 就能直接终止进程，不必另写强制退出逻辑。</p>
+<h2 id="3-HTTP-服务的优雅关闭"><a href="#3-HTTP-服务的优雅关闭" class="headerlink" title="3. HTTP 服务的优雅关闭"></a>3. HTTP 服务的优雅关闭</h2><p><code>http.Server.Shutdown</code> 会关闭监听器并等待活跃请求结束：</p>
+<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;
+    mux := http.NewServeMux()
+    mux.HandleFunc(<span class="string">&quot;/&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;
+        time.Sleep(<span class="number">2</span> * time.Second)
+        w.Write([]<span class="type">byte</span>(<span class="string">&quot;done&quot;</span>))
+    &#125;)
+
+    srv := &amp;http.Server&#123;Addr: <span class="string">&quot;:8080&quot;</span>, Handler: mux&#125;
+
+    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
+        <span class="keyword">if</span> err := srv.ListenAndServe(); err != <span class="literal">nil</span> &amp;&amp; !errors.Is(err, http.ErrServerClosed) &#123;
+            log.Fatalf(<span class="string">&quot;listen: %v&quot;</span>, err)
+        &#125;
+    &#125;()
+
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    <span class="keyword">defer</span> stop()
+    &lt;-ctx.Done()
+
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), <span class="number">10</span>*time.Second)
+    <span class="keyword">defer</span> cancel()
+
+    <span class="keyword">if</span> err := srv.Shutdown(shutdownCtx); err != <span class="literal">nil</span> &#123;
+        log.Printf(<span class="string">&quot;优雅关闭超时: %v&quot;</span>, err)
+        _ = srv.Close() <span class="comment">// 兜底：直接断开剩余连接</span>
+    &#125;
+    log.Println(<span class="string">&quot;已退出&quot;</span>)
+&#125;</code></pre>
+
+<p>几个需要理解的行为：</p>
+<ul>
+<li><code>Serve</code>&#x2F;<code>ListenAndServe</code> 在调用 <code>Shutdown</code> 后会返回 <code>http.ErrServerClosed</code>，属于正常情况，不能当成错误；</li>
+<li><code>Shutdown</code> 只处理普通连接，<strong>不会关闭也不会等待被 hijack 的连接</strong>（例如 WebSocket）。这类连接需要自己通过 <code>RegisterOnShutdown</code> 或业务逻辑通知关闭；</li>
+<li>超时后 <code>Shutdown</code> 返回 <code>ctx.Err()</code>，此时进程里可能还有请求在跑，必须用 <code>Close()</code> 或直接退出兜底；</li>
+<li><code>Shutdown</code> 与 <code>Close</code> 的区别是“等”与“断”，二者不可混用为同一个语义。</li>
+</ul>
+<h2 id="4-关闭顺序与多组件编排"><a href="#4-关闭顺序与多组件编排" class="headerlink" title="4. 关闭顺序与多组件编排"></a>4. 关闭顺序与多组件编排</h2><p>真实服务通常不止一个 HTTP Server，还有后台 worker、消息消费者、定时任务和数据库连接。合理的顺序是：</p>
+<pre><code class="highlight text">1. 关闭入口监听（HTTP / gRPC）
+2. 停止接收新任务（消费者停止拉取、任务队列停止投递）
+3. 等待存量任务完成（WaitGroup / 业务信号）
+4. 关闭下游连接（MQ、DB、缓存、HTTP 客户端）
+5. 退出</code></pre>
+
+<p>一个可复用的写法是给每个组件定义统一的接口，再按顺序调用：</p>
+<pre><code class="highlight go"><span class="keyword">type</span> Component <span class="keyword">interface</span> &#123;
+    Name() <span class="type">string</span>
+    Shutdown(ctx context.Context) <span class="type">error</span>
+&#125;
+
+<span class="function"><span class="keyword">func</span> <span class="title">shutdownAll</span><span class="params">(ctx context.Context, components []Component)</span></span> &#123;
+    <span class="keyword">for</span> _, c := <span class="keyword">range</span> components &#123;
+        <span class="keyword">if</span> err := c.Shutdown(ctx); err != <span class="literal">nil</span> &#123;
+            log.Printf(<span class="string">&quot;关闭 %s 失败: %v&quot;</span>, c.Name(), err)
+        &#125;
+    &#125;
+&#125;</code></pre>
+
+<p>后台任务用 <code>WaitGroup</code> 等待：</p>
+<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">startWorker</span><span class="params">(ctx context.Context, wg *sync.WaitGroup)</span></span> &#123;
+    wg.Add(<span class="number">1</span>)
+    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
+        <span class="keyword">defer</span> wg.Done()
+        <span class="keyword">for</span> &#123;
+            <span class="keyword">select</span> &#123;
+            <span class="keyword">case</span> &lt;-ctx.Done():
+                <span class="keyword">return</span>
+            <span class="keyword">case</span> job := &lt;-jobs:
+                process(job)
+            &#125;
+        &#125;
+    &#125;()
+&#125;</code></pre>
+
+<p>注意顺序不能反：如果先关数据库再停 worker，worker 可能在关闭过程中继续访问已经关闭的连接，产生大量错误日志。入口先停、数据源最后关，是基本纪律。</p>
+<h2 id="5-标准库里的机制"><a href="#5-标准库里的机制" class="headerlink" title="5. 标准库里的机制"></a>5. 标准库里的机制</h2><h3 id="5-1-signal-NotifyContext-做了什么"><a href="#5-1-signal-NotifyContext-做了什么" class="headerlink" title="5.1 signal.NotifyContext 做了什么"></a>5.1 <code>signal.NotifyContext</code> 做了什么</h3><p>源码中的实现很直接：</p>
+<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">NotifyContext</span><span class="params">(parent context.Context, signals ...os.Signal)</span></span> (ctx context.Context, stop context.CancelFunc) &#123;
+    ctx, cancel := context.WithCancel(parent)
+    c := &amp;signalCtx&#123;Context: ctx, cancel: cancel, signals: signals&#125;
+    c.ch = <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)
+    Notify(c.ch, c.signals...)
+    <span class="keyword">if</span> ctx.Err() == <span class="literal">nil</span> &#123;
+        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
+            <span class="keyword">select</span> &#123;
+            <span class="keyword">case</span> &lt;-c.ch:
+                c.cancel()
+            <span class="keyword">case</span> &lt;-c.Done():
+            &#125;
+        &#125;()
+    &#125;
+    <span class="keyword">return</span> c, c.stop
+&#125;</code></pre>
+
+<p>关键点：</p>
+<ul>
+<li>内部 channel <strong>缓冲区为 1</strong>。<code>os/signal</code> 向 channel 发送时不会阻塞，如果调用方不消费且缓冲已满，后续同型号信号会被丢弃；</li>
+<li>起一个 goroutine 等待信号并调用 <code>cancel()</code>；</li>
+<li>返回的 <code>stop</code> 会 cancel 上下文并调用 <code>signal.Stop</code>，这正是“恢复默认信号行为”的来源。</li>
+</ul>
+<p>这也解释了为什么自己用 <code>signal.Notify</code> 时 channel 通常声明为 <code>make(chan os.Signal, 1)</code>：避免在还没开始接收时丢掉第一个信号。</p>
+<h3 id="5-2-http-Server-Shutdown-做了什么"><a href="#5-2-http-Server-Shutdown-做了什么" class="headerlink" title="5.2 http.Server.Shutdown 做了什么"></a>5.2 <code>http.Server.Shutdown</code> 做了什么</h3><p>以 Go 1.25 的实现为例，<code>Shutdown</code> 的流程是：</p>
+<ol>
+<li>把 <code>inShutdown</code> 置为 true，此后新连接会被拒绝；</li>
+<li>关闭所有监听器，停止 accept，并等待监听相关的 goroutine 退出；</li>
+<li>以 goroutine 方式执行 <code>RegisterOnShutdown</code> 注册的回调（用于通知 hijack 连接）；</li>
+<li>循环调用 <code>closeIdleConns()</code> 关闭空闲连接，直到服务器进入静止状态；</li>
+<li>轮询间隔从 1ms 开始指数增长，带 10% 抖动，上限 500ms；</li>
+<li>一旦 <code>ctx.Done()</code> 触发，立即返回 <code>ctx.Err()</code>。</li>
+</ol>
+<p>轮询而不是事件通知，换来的是实现简单：每次检查都重新统计活跃连接，因此关闭期间的连接变化不需要额外同步。代价是关闭完成有一定延迟（最多约一个轮询周期），这也是 <code>Shutdown</code> 返回值不宜用来精确判断“何时完全停止”的原因。</p>
+<h2 id="6-实践探讨与常见坑"><a href="#6-实践探讨与常见坑" class="headerlink" title="6. 实践探讨与常见坑"></a>6. 实践探讨与常见坑</h2><h3 id="超时设置要与平台对齐"><a href="#超时设置要与平台对齐" class="headerlink" title="超时设置要与平台对齐"></a>超时设置要与平台对齐</h3><p>优雅关闭的超时应当<strong>小于</strong>平台的强制终止时间。以 Kubernetes 为例，默认 <code>terminationGracePeriodSeconds</code> 是 30 秒，如果 <code>Shutdown</code> 也等 30 秒，进程很可能在收尾阶段被 SIGKILL，连日志都写不完。实践上留出余量，比如 10 到 20 秒。</p>
+<p>同时，容器里还需要处理“信号已发出但负载均衡还没摘除”的窗口期，常见做法是加一个 <code>preStop</code> 延迟：</p>
+<pre><code class="highlight yaml"><span class="attr">lifecycle:</span>
+  <span class="attr">preStop:</span>
+    <span class="attr">exec:</span>
+      <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;sleep 5&quot;</span>]
+<span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></code></pre>
+
+<h3 id="二次信号：要么强制退出，要么恢复默认"><a href="#二次信号：要么强制退出，要么恢复默认" class="headerlink" title="二次信号：要么强制退出，要么恢复默认"></a>二次信号：要么强制退出，要么恢复默认</h3><p>两种常见策略：</p>
+<pre><code class="highlight go"><span class="comment">// 策略一：自己接管第二次信号</span>
+sigCh := <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)
+signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+&lt;-sigCh
+<span class="keyword">go</span> gracefulShutdown()
+&lt;-sigCh
+log.Println(<span class="string">&quot;收到第二次信号，强制退出&quot;</span>)
+os.Exit(<span class="number">1</span>)</code></pre>
+
+<pre><code class="highlight go"><span class="comment">// 策略二：NotifyContext + 提前 stop，交给系统默认行为</span>
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+&lt;-ctx.Done()
+stop() <span class="comment">// 之后再次 Ctrl+C 直接终止</span></code></pre>
+
+<p>不要两种情况混用：既没有 <code>stop()</code>，又用 <code>os.Exit</code> 之外的路径“等第二次信号”，会出现关闭逻辑无法被打断的僵局。</p>
+<h3 id="os-Exit-不会执行-defer"><a href="#os-Exit-不会执行-defer" class="headerlink" title="os.Exit 不会执行 defer"></a><code>os.Exit</code> 不会执行 defer</h3><p>在关闭逻辑中调用 <code>os.Exit</code> 会跳过所有 defer，包括 <code>defer cancel()</code>、<code>defer db.Close()</code>。要么先把清理显式做完再退出，要么只让 <code>main</code> 正常返回。</p>
+<h3 id="长连接与流式响应"><a href="#长连接与流式响应" class="headerlink" title="长连接与流式响应"></a>长连接与流式响应</h3><p><code>Shutdown</code> 不管 hijack 的连接，也不管已经升级的协议。WebSocket、gRPC streaming、SSE 都需要业务自己发送关闭通知，并设置读超时，否则这些连接会让关闭一直等到超时。</p>
+<h3 id="后台任务要能响应取消"><a href="#后台任务要能响应取消" class="headerlink" title="后台任务要能响应取消"></a>后台任务要能响应取消</h3><p>只在 <code>main</code> 里等待信号是不够的。worker 内部必须通过 <code>select</code> 监听 <code>ctx.Done()</code>，或者把 ctx 一路传进阻塞调用，否则 <code>WaitGroup.Wait()</code> 会无限等待。关不掉的 goroutine 是优雅退出最常见的失败原因。</p>
+<h3 id="Windows-与-Linux-的信号差异"><a href="#Windows-与-Linux-的信号差异" class="headerlink" title="Windows 与 Linux 的信号差异"></a>Windows 与 Linux 的信号差异</h3><p><code>syscall.SIGTERM</code> 在 Windows 上不会被外部正常发送，<code>signal.Notify</code> 注册它没有实际作用；Windows 下通常只有 <code>Ctrl+C</code>（<code>os.Interrupt</code>）和 <code>Ctrl+Break</code>。因此优雅退出的行为差异最好在 Linux 环境或 WSL 中验证。</p>
+<h3 id="只关监听器不等于关连接池"><a href="#只关监听器不等于关连接池" class="headerlink" title="只关监听器不等于关连接池"></a>只关监听器不等于关连接池</h3><p>进程退出前还应关闭 HTTP 客户端的空闲连接（<code>http.Transport.CloseIdleConnections</code>）、消息消费者和数据库连接池。只关闭自己的 Server，不会自动清理这些外部资源。</p>
+<h3 id="幂等与并发"><a href="#幂等与并发" class="headerlink" title="幂等与并发"></a>幂等与并发</h3><p><code>Shutdown</code> 可能被多个路径触发（信号、健康检查失败、管理接口）。用一个 <code>sync.Once</code> 或原子标志包住整个关闭流程，避免重复关停导致日志混乱或二次关闭错误。</p>
+<h2 id="7-参考文档"><a href="#7-参考文档" class="headerlink" title="7. 参考文档"></a>7. 参考文档</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://pkg.go.dev/os/signal">Go 语言规范之外：os&#x2F;signal 包文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/os/signal/signal.go">os&#x2F;signal.NotifyContext 源码（Go 1.25）</a></li>
+<li><a target="_blank" rel="noopener" href="https://pkg.go.dev/net/http#Server.Shutdown">net&#x2F;http.Server.Shutdown 文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/net/http/server.go">net&#x2F;http 服务端源码（Go 1.25）</a></li>
+<li><a target="_blank" rel="noopener" href="https://go.dev/blog/context">Go 博客：Contexts and Cancellation</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination">Kubernetes 文档：Pod 生命周期与优雅终止</a></li>
+</ul>
+</main>
+
+</article>
+
+
+<script src="/js/highlight.js"></script>
+
+  </main>
+  <footer class="footer">
+  
+  <span>Copyright © 2024 Li Zhengxing</span>
+  
+</footer>
+  
+<script src="/js/theme.js"></script>
+
+</body>
+
+</html>
