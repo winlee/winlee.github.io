@@ -73,8 +73,28 @@
 <div class="post-list">
   <div class="category-title">分类：go</div>
   
+  <section class="post-item">
+    <a class="post-item-title" href="/2026/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/">Go 的 defer 使用与原理</a>
+    <div class="post-item-summary">
+      defer 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。
+1. defer 的介绍defer 后面必须是函数或方法调用。执行到 defer 语句时，Go 会立即求值被调用的函数以及参数，但不会立即调用它；被登记的调用会在外层函数返回前执行。
+func example() &#123;
+    defer fmt.Println(&quot;cleanup&quot;)
+   
+      <a class="read-more" href="/2026/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/"> ... </a>
+    </div>
+    <div class="post-item-extra">
+      <div class="date">2026.11.02</div>
+      <div class="tags">
+        
+        <div class="tag-item">Go</div>
+        
+        <div class="tag-item">defer</div>
+        
+      </div>
+    </div>
+  </section>
   
-  <p class="category-empty">暂无文章</p>
   
 </div>
 
