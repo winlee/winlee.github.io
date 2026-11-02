@@ -10,7 +10,7 @@ categories_menu:
   - leetcode
 
 menu:
-  Archives: /archives
-  About: /about
+  archives: /archives
+  about: /about
 
 copyright: 2024 Li Zhengxing
