@@ -142,30 +142,106 @@ cleanup</code></pre>
 &#125;</code></pre>
 
 <p><code>recover</code> 只能在正在展开 panic 的同一 goroutine 中，由 deferred 函数直接调用时生效；它不能捕获其他 goroutine 的 panic。</p>
-<h2 id="3-defer-的原理"><a href="#3-defer-的原理" class="headerlink" title="3. defer 的原理"></a>3. defer 的原理</h2><p>可以把 <code>defer</code> 理解为：在当前函数的执行上下文中登记待执行的调用，函数退出时按登记的逆序运行它们。函数正常返回和 panic 展开都会触发这些调用。</p>
-<p>关键在于调用参数在登记时就已求值：</p>
+<h2 id="3-defer-的原理：从编译器到运行时"><a href="#3-defer-的原理：从编译器到运行时" class="headerlink" title="3. defer 的原理：从编译器到运行时"></a>3. defer 的原理：从编译器到运行时</h2><p>下面以 **Go 1.25.12（linux&#x2F;amd64 的通用实现思路）**为例分析源码。编译器策略会随版本、目标架构、函数结构和编译选项变化；<code>_defer</code> 等均是运行时内部实现，不属于 Go 语言规范。</p>
+<p>先看一条完整路径：</p>
+<pre><code class="highlight text">defer 语句
+   │
+   ├─ 编译器：求值函数/接收者/参数，决定 defer 实现策略
+   │
+   ├─ open-coded：保存到当前栈帧的槽位，并置位 deferBits
+   │
+   └─ linked defer：构造 _defer 记录，挂入当前 goroutine 的 defer 链
+          │
+          ├─ 正常返回：执行返回路径上的 defer 处理代码
+          └─ panic：gopanic 遍历栈帧，由 nextDefer 找到并执行待处理调用</code></pre>
+
+<h3 id="3-1-编译器先改写-defer-调用"><a href="#3-1-编译器先改写-defer-调用" class="headerlink" title="3.1 编译器先改写 defer 调用"></a>3.1 编译器先改写 defer 调用</h3><p>编译器前端把 <code>defer f(x)</code> 表示为 defer 语句节点（内部 IR 中为 <code>ODEFER</code>）。在 <code>cmd/compile/internal/walk/stmt.go</code> 中，编译器标记函数含有 defer，并统计静态 defer 数量；之后 SSA 阶段选择生成 open-coded 代码还是运行时调用。</p>
+<p>无论采用哪条路径，<strong>调用所需的数据都必须在执行 defer 语句时确定</strong>：函数值、方法接收者和实参在登记点求值。编译器把它们保存到之后可供延迟调用使用的位置；如果是闭包，保存的是闭包值及其捕获环境。</p>
 <pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
     n := <span class="number">1</span>
-    <span class="keyword">defer</span> fmt.Println(n) <span class="comment">// 此处保存参数值 1</span>
+    <span class="keyword">defer</span> fmt.Println(n) <span class="comment">// 保存的实参是 1</span>
     n = <span class="number">2</span>
 &#125;</code></pre>
 
-<p>函数返回时打印 <code>1</code>。如果延迟调用是闭包，闭包捕获的变量则会在闭包执行时读取：</p>
+<p>这里保存的是整数 <code>1</code>，而不是 <code>n</code> 这个变量的位置。闭包则不同：</p>
 <pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
     n := <span class="number">1</span>
-    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-        fmt.Println(n) <span class="comment">// 读取执行时的 n，输出 2</span>
-    &#125;()
+    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; fmt.Println(n) &#125;() <span class="comment">// 闭包捕获 n</span>
     n = <span class="number">2</span>
 &#125;</code></pre>
 
-<p>带命名返回值的函数可以按以下顺序理解：</p>
+<p>闭包执行时读取捕获的变量，因此输出 <code>2</code>。这是“实参立即求值”和“闭包延迟执行”共同造成的，不是 defer 参数求值规则的例外。</p>
+<h3 id="3-2-当前编译器的三种实现路径"><a href="#3-2-当前编译器的三种实现路径" class="headerlink" title="3.2 当前编译器的三种实现路径"></a>3.2 当前编译器的三种实现路径</h3><p>Go 1.25.12 编译器源码会把 defer 区分为 <strong>open-coded、stack-allocated、heap-allocated</strong>。这是编译器实现策略，不应理解成语言层面对每条 defer 的固定承诺。</p>
+<h4 id="路径-A：open-coded-defer"><a href="#路径-A：open-coded-defer" class="headerlink" title="路径 A：open-coded defer"></a>路径 A：open-coded defer</h4><p>这是很多简单函数的优化路径：编译器不必为每个 defer 都调用运行时注册函数，而是将必要状态直接放进当前函数的栈帧，并在函数退出路径生成调用代码。</p>
+<p>编译器为这些 defer 维护一个字节大小的 <code>deferBits</code> 位图，并为每个静态 defer 调用保存函数值和参数的槽位。执行到某条 defer 时，大致完成两件事：</p>
 <ol>
-<li>计算 <code>return</code> 表达式，并赋给返回变量（如果有命名返回值）；</li>
-<li>按后进先出顺序执行 deferred 调用；</li>
-<li>返回最终的返回值。</li>
+<li>把已求值的函数值、接收者和实参保存到该调用对应的槽位；</li>
+<li>把该 defer 对应的 bit 置为 1，表示它已经执行过、需要在退出时调用。</li>
 </ol>
-<p>实现层面，较早的 Go 版本主要通过运行时 defer 记录来管理延迟调用。现代 Go 编译器会根据代码形态选择不同实现，包括把 defer 调用直接编排到函数退出路径（open-coded defer）等优化。具体采用哪种策略由编译器决定，但调用时机、LIFO 顺序和参数求值等语言语义保持不变；日常代码应依赖语言规范，而不是某个内部结构或函数名。</p>
+<p>退出时，生成的代码检查位图，从高位到低位找到最后登记的待执行 defer，取出对应函数和参数调用，并清除该 bit。由于 defer 按 LIFO 语义执行，位编号和遍历方向会被编译器安排成逆登记顺序。</p>
+<p>如果某个 defer 位于条件分支中，分支未执行时 bit 不会置位，因此返回时跳过；同一条静态 defer 语句若处在循环中，则可能执行任意多次，单个位图无法表达多次登记，通常需要走链表式路径。</p>
+<p>当前源码中可见的常见限制包括：静态 defer 点不超过 8 个、defer 不处于循环，以及函数退出路径数量和其他目标条件合适。具体条件以所用 Go 版本的编译器为准。编译器还将 defer 位图和槽位偏移写入 <code>FUNCDATA_OpenCodedDeferInfo</code>，供 panic 栈展开时定位仍未执行的 defer。</p>
+<h4 id="路径-B：stack-allocated-defer"><a href="#路径-B：stack-allocated-defer" class="headerlink" title="路径 B：stack-allocated defer"></a>路径 B：stack-allocated defer</h4><p>当不能使用 open-coded，但编译器能证明 defer 记录不会逃逸时，可把 <code>_defer</code> 记录直接放在当前函数栈帧中。生成代码初始化记录，再调用 <code>runtime.deferprocStack</code> 将它挂入链表。</p>
+<p>这种路径避免为 defer 记录单独进行堆分配，但它仍然是运行时链表管理，不等同于 open-coded。运行时必须记录该记录所属栈帧；goroutine 栈可能增长或复制，记录中的栈指针也必须按照运行时规则处理。</p>
+<h4 id="路径-C：heap-allocated-defer"><a href="#路径-C：heap-allocated-defer" class="headerlink" title="路径 C：heap-allocated defer"></a>路径 C：heap-allocated defer</h4><p>若 defer 记录不能安全放在栈上，编译器会生成调用 <code>runtime.deferproc</code> 的代码。运行时通过 <code>newdefer</code> 获取记录：优先使用 P 级 defer pool（必要时从调度器池补充），没有可复用记录时再分配 <code>_defer</code>；随后把记录挂到 <code>gp._defer</code> 链表头。</p>
+<p>Go 1.25.12 的 <code>runtime._defer</code> 关键字段包括：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fn</code></td>
+<td>延迟调用的函数值；open-coded defer 不一定有单独记录，因此允许为 nil</td>
+</tr>
+<tr>
+<td><code>link</code></td>
+<td>指向同一 goroutine defer 链中的下一条记录</td>
+</tr>
+<tr>
+<td><code>sp</code>、<code>pc</code></td>
+<td>记录 defer 所属栈帧的位置，用于匹配正在展开的帧</td>
+</tr>
+<tr>
+<td><code>heap</code></td>
+<td>标记记录来自堆&#x2F;运行时池，还是由编译器放在栈上</td>
+</tr>
+</tbody></table>
+<p>这条路径的登记逻辑可以概括为：</p>
+<pre><code class="highlight go">d := newdefer()
+d.link = gp._defer
+gp._defer = d
+d.fn = fn
+d.pc = callerPC
+d.sp = callerSP</code></pre>
+
+<p>这是对 <code>runtime.deferproc</code> 的删减示意，不是可直接使用的代码。实际源码还处理系统栈约束、栈指针有效性、pool、GC 与并发安全等细节。</p>
+<h3 id="3-3-正常返回：返回值先确定，再运行-defer"><a href="#3-3-正常返回：返回值先确定，再运行-defer" class="headerlink" title="3.3 正常返回：返回值先确定，再运行 defer"></a>3.3 正常返回：返回值先确定，再运行 defer</h3><p>对常规返回，编译器会生成相应的退出路径。open-coded defer 由该函数生成的代码直接检查位图并调用；链表式 defer 则由编译器安排的 <code>runtime.deferreturn</code> 处理。</p>
+<p><code>runtime.deferreturn</code> 创建运行时的 defer 执行上下文，反复调用 <code>nextDefer</code> 取出当前函数帧的下一条 defer 并执行。链表记录弹出后，运行时清除函数引用，避免延长闭包或其捕获对象的存活时间；堆记录之后可回收到 defer pool。</p>
+<p>对于命名返回值，编译器把 <code>return expr</code> 展开成“先写返回变量，再运行退出逻辑，最后返回”。例如：</p>
+<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">f</span><span class="params">()</span></span> (n <span class="type">int</span>) &#123;
+    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; n++ &#125;()
+    <span class="keyword">return</span> <span class="number">10</span>
+&#125;</code></pre>
+
+<p><code>10</code> 先赋给 <code>n</code>，defer 再把 <code>n</code> 改为 <code>11</code>，最终返回 <code>11</code>。未命名返回值的返回表达式也会先计算到返回位置；但 defer 中修改某个局部变量不会反过来改写已经计算好的返回值。</p>
+<h3 id="3-4-panic-展开：运行时沿栈帧找-defer"><a href="#3-4-panic-展开：运行时沿栈帧找-defer" class="headerlink" title="3.4 panic 展开：运行时沿栈帧找 defer"></a>3.4 panic 展开：运行时沿栈帧找 defer</h3><p><code>panic</code> 进入 <code>runtime.gopanic</code> 后，运行时创建 <code>_panic</code> 状态并循环调用 <code>nextDefer</code>。每次拿到一个延迟函数就执行它：</p>
+<ol>
+<li>如果当前栈帧有未执行的 open-coded defer，运行时读取编译器写入的 <code>FUNCDATA_OpenCodedDeferInfo</code>，检查 <code>deferBits</code>，按逆序取出槽位中的调用，并先清除对应 bit；</li>
+<li>否则检查 <code>gp._defer</code> 链表头的 <code>sp</code> 是否属于当前栈帧。匹配时弹出记录并返回其 <code>fn</code>；</li>
+<li>当前帧没有待执行 defer 时，继续用栈展开器寻找外层帧，直到找不到更多 defer。</li>
+</ol>
+<p>因此运行时需要同时理解 open-coded 元数据和链表记录：它们是两种存储形式，但最终都由 panic 展开流程按语言要求调用。defer 内再次 panic 时会进入新的 panic 展开；<code>recover</code> 能否生效则由运行时检查当前执行位置是否是正在处理的 panic 中最顶层 deferred 调用（源码通过参数区地址等信息校验）。</p>
+<h3 id="3-5-如何在本机观察编译器选择"><a href="#3-5-如何在本机观察编译器选择" class="headerlink" title="3.5 如何在本机观察编译器选择"></a>3.5 如何在本机观察编译器选择</h3><p>对当前 Go 编译器，可以用调试开关查看 defer 分类：</p>
+<pre><code class="highlight bash">go build -gcflags=<span class="string">&#x27;-d=defer=2&#x27;</span> ./...</code></pre>
+
+<p>输出会提示某条 defer 是 <code>open-coded</code>、<code>stack-allocated</code> 还是 <code>heap-allocated</code>。也可以查看汇编：</p>
+<pre><code class="highlight bash">go build -gcflags=<span class="string">&#x27;-S&#x27;</span> -o app .</code></pre>
+
+<p>在汇编中搜索 <code>deferproc</code>、<code>deferprocStack</code> 或 <code>deferreturn</code> 可以发现链表路径；找不到这些调用并不表示没有 defer，可能是 defer 已被 open-code 到函数退出路径。</p>
+<p><strong>阅读结论：</strong> defer 的语言语义由规范保证；“位图”“<code>_defer</code> 链表”“栈分配&#x2F;堆分配”和相关运行时函数名都是特定编译器与运行时版本的实现细节。性能分析或源码学习时应锁定 Go 版本，业务代码则不要依赖这些内部布局。</p>
 <h2 id="4-defer-的注意事项"><a href="#4-defer-的注意事项" class="headerlink" title="4. defer 的注意事项"></a>4. defer 的注意事项</h2><h3 id="参数在登记时求值"><a href="#参数在登记时求值" class="headerlink" title="参数在登记时求值"></a>参数在登记时求值</h3><pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
     n := <span class="number">1</span>
     <span class="keyword">defer</span> fmt.Println(n)
@@ -198,6 +274,10 @@ cleanup</code></pre>
 <li><a target="_blank" rel="noopener" href="https://go.dev/blog/defer-panic-and-recover">Go 博客：Defer, Panic, and Recover</a></li>
 <li><a target="_blank" rel="noopener" href="https://go.dev/doc/go1.14#compiler">Go 1.14 发布说明：编译器对 defer 的优化</a></li>
 <li><a target="_blank" rel="noopener" href="https://go.dev/ref/spec#Return_statements">Go 语言规范：Return statements</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/walk/stmt.go">Go 1.25.12 编译器：defer 语句处理（walk&#x2F;stmt.go）</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/ssagen/ssa.go">Go 1.25.12 编译器：SSA、open-coded defer 与 deferreturn（ssagen&#x2F;ssa.go）</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/panic.go">Go 1.25.12 运行时：defer 注册、返回和 panic 展开（runtime&#x2F;panic.go）</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/runtime2.go">Go 1.25.12 运行时：<code>_defer</code> 与 <code>_panic</code> 结构（runtime&#x2F;runtime2.go）</a></li>
 </ul>
 </main>
 
