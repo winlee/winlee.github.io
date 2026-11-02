@@ -50,7 +50,7 @@ post:
 code_block:
   tools:
     enable: true
-    style: mac
+    style: default
   highlight_theme: default
 
 toc:
