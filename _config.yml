@@ -44,12 +44,13 @@ relative_link: false
 future: true
 syntax_highlighter: highlight.js
 
-# Highlight.js is provided by the typo theme, disable Hexo's built-in one
+# Keep code block tools require Hexo highlight output; PrismJS remains disabled.
 highlight:
+  enable: true
   line_number: false
   auto_detect: false
   tab_replace: ''
-  wrap: false
+  wrap: true
   hljs: false
 
 prismjs:
