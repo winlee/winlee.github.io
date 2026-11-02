@@ -279,3 +279,64 @@ a {
   border-bottom: 2px solid var(--font-color);
   cursor: not-allowed;
 }
+
+/* 导航栏分类下拉 */
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown-toggle {
+  cursor: pointer;
+  color: var(--font-color);
+}
+
+.nav-dropdown:hover .nav-dropdown-toggle,
+.nav-dropdown:focus-within .nav-dropdown-toggle {
+  text-decoration: underline;
+}
+
+.nav-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -12px;
+  min-width: 104px;
+  margin: 0;
+  padding: 6px 0;
+  background: var(--color-background);
+  border: 1px solid var(--color-hr);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  z-index: 10000;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  display: block;
+}
+
+.nav .nav-dropdown-menu li {
+  margin: 0;
+  padding: 0;
+}
+
+.nav .nav-dropdown-menu li a {
+  display: block;
+  padding: 6px 16px;
+}
+
+.nav .nav-dropdown-menu li a:hover {
+  background: var(--color-hr);
+  text-decoration: none;
+}
+
+/* 分类页标题 */
+.category-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.category-empty {
+  color: var(--font-color-secondary);
+}
