@@ -1,169 +1,783 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="keywords" content="Hexo Theme Keep">
+  <meta name="description" content="Sharing thoughts and experiences about technology, programming, and life">
+  <meta name="author" content="Li Zhengxing">
+  
   <title>
     
-
     Xing&#39;s Blog
   </title>
-
-  
-  <link rel="shortcut icon" href="/icon.svg">
-  
-
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-  
-
-  <!-- 字体 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
-
-  
-<link rel="stylesheet" href="/css/root.css">
-
   
 <link rel="stylesheet" href="/css/style.css">
 
   
-<link rel="stylesheet" href="/css/post.css">
+    <link rel="shortcut icon" href="/favicon.svg">
+  
+  
+<link rel="stylesheet" href="/font/css/fontawesome.min.css">
 
+  
+<link rel="stylesheet" href="/font/css/regular.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/solid.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/brands.min.css">
+
+  
+  <script>
+    (function () {
+      let theme = localStorage.getItem('KEEP-THEME-STATUS');
+      let classname = "";
+      if (!theme || (JSON.parse(theme).isAutoTheme)){
+        classname = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? "dark-mode" : "light-mode";
+      }
+      else{
+        classname = JSON.parse(theme).isDark ? "dark-mode" : "light-mode";
+      }
+      document.documentElement.classList.add(classname);
+    })();
+  </script>
+  <script class="keep-theme-configurations">
+    const KEEP = window.KEEP || {}
+    KEEP.hexo_config = {"hostname":"winlee.github.io","root":"/","language":"zh-CN"}
+    KEEP.theme_config = {"base_info":{"primary_color":"#b84c4b","title":"Xing's Blog","author":"Li Zhengxing","avatar":null,"logo":"/favicon.svg","favicon":"/favicon.svg"},"menu":{"home":"/","archives":"/archives","categories":"/categories","tags":"/tags","about":"/about"},"first_screen":{"enable":true,"background_img":"/images/bg.svg","background_img_dark":"/images/bg.svg","description":"Go 后端、AI Agent 与工程实践","hitokoto":false},"social_contact":{"enable":true,"links":{"github":"https://github.com/winlee","weixin":null,"qq":null,"weibo":null,"zhihu":null,"twitter":null,"x":null,"facebook":null,"email":null}},"scroll":{"progress_bar":true,"percent":false,"hide_header":false},"home":{"announcement":null,"category":true,"tag":true,"post_datetime":"created"},"post":{"author_badge":{"enable":false,"level_badge":true,"custom_badge":["One","Two","Three"]},"word_count":{"word":false,"min2read":true},"datetime_format":"YYYY-MM-DD","copyright_info":false,"share":false,"reward":{"enable":false,"img_link":null,"text":null,"icon":null}},"code_block":{"tools":{"enable":true,"style":"mac"},"highlight_theme":"default"},"toc":{"enable":true,"number":true,"expand_all":true,"init_open":true,"layout":"right"},"website_count":{"busuanzi_count":{"enable":false,"site_uv":false,"site_pv":false,"page_pv":false}},"local_search":{"enable":true,"preload":false},"comment":{"enable":false,"use":"valine","valine":{"appid":null,"appkey":null,"server_urls":null,"placeholder":null},"gitalk":{"github_id":null,"github_admins":null,"repository":null,"client_id":null,"client_secret":null,"proxy":null},"twikoo":{"env_id":null,"region":null,"version":"2.0.8"},"waline":{"server_url":null,"reaction":false,"version":"3.15.2"},"giscus":{"repo":null,"repo_id":null,"category":"Announcements","category_id":null,"reactions_enabled":false},"artalk":{"server":null},"disqus":{"shortname":null}},"rss":{"enable":false},"lazyload":{"enable":false},"cdn":{"enable":false,"provider":"cdnjs","custom":{"enable":false,"url":null}},"pjax":{"enable":false},"footer":{"since":2013,"word_count":false,"site_deploy":{"enable":false,"provider":"github","url":null},"record":{"enable":false,"list":[{"code":null,"link":null}]}},"inject":{"enable":false,"css":[null],"js":[null]},"root":"","search_db_path":"keep-search.json","source_data":{},"version":"4.4.0"}
+    KEEP.language_ago = {"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"}
+    KEEP.language_code_block = {"copy":"复制代码","copied":"已复制","fold":"折叠代码块","folded":"已折叠"}
+    KEEP.language_copy_copyright = {"copy":"复制版权信息","copied":"已复制","title":"原文标题","author":"原文作者","link":"原文链接"}
+  </script>
 <meta name="generator" content="Hexo 7.3.0"></head>
 
+
 <body>
-  <header class="header">
-  <section class="header-container">
-    <a class="logo" href="/">Xing&#39;s Blog</a>
-    <ul class="nav">
+<div class="progress-bar-container">
+  
+    <span class="scroll-progress-bar"></span>
+  
+
+  
+</div>
+
+
+
+<main class="page-container border-box">
+  <!-- home first screen  -->
+  
+    
+<div class="first-screen-container border-box flex-center fade-in-down-animation">
+  <div class="first-screen-content border-box">
+    <div class="top-placeholder border-box"></div>
+
+    <div class="middle-placeholder border-box">
       
-      <li class="nav-dropdown">
-        <details>
-          <summary class="nav-dropdown-toggle">分类</summary>
-        <ul class="nav-dropdown-menu">
+        <div class="description border-box">
           
-          <li><a href="/categories/go/">go</a></li>
+            
+              
+                <div class="desc-item border-box"><span class="desc">Go 后端、AI Agent 与工程实践</span><span class="cursor">｜</span></div>
+              
+            
           
-          <li><a href="/categories/mysql/">mysql</a></li>
+        </div>
+      
+
+      
+    </div>
+
+    <div class="bottom-placeholder border-box">
+      
+        <div class="sc-icon-list border-box">
+          <!-- fontawesome icons -->
           
-          <li><a href="/categories/redis/">redis</a></li>
+            
+              
+              <div class="tooltip sc-icon-item "
+                data-tooltip-content="GitHub"
+                
+                
+              >
+                
+                  
+                  
+                    <a target="_blank" href="https://github.com/winlee">
+                      <i class="fab fa-github"></i>
+                    </a>
+                  
+                
+              </div>
+            
           
-          <li><a href="/categories/kafka/">kafka</a></li>
+            
           
-          <li><a href="/categories/leetcode/">leetcode</a></li>
+            
+          
+            
+          
+            
+          
+            
+          
+            
+          
+            
+          
+            
+          
+
+          <!-- custom svg icons -->
+          
+          
+        </div>
+      
+    </div>
+  </div>
+</div>
+
+  
+
+  <!-- page content -->
+  <div class="page-main-content border-box is-home">
+    <div class="page-main-content-top">
+      
+<header class="header-wrapper transparent-1">
+
+  <div class="border-box header-content has-first-screen">
+    <div class="left flex-start border-box">
+      
+        <a class="logo-image border-box" href="/">
+          <img src="/favicon.svg">
+        </a>
+      
+      <a class="site-name border-box" href="/">
+        Xing&#39;s Blog
+      </a>
+    </div>
+
+    <div class="right border-box">
+      <div class="pc border-box">
+        <ul class="menu-list border-box">
+          
+            
+            <li class="menu-item flex-start border-box active">
+              <a class="menu-text-color border-box" href="/">
+                
+                首页
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/archives">
+                
+                归档
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/categories">
+                
+                分类
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/tags">
+                
+                标签
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/about">
+                
+                关于
+                
+              </a>
+              
+            </li>
+          
+          
+            <li class="menu-item search search-popup-trigger">
+              <i class="menu-text-color fas search fa-search"></i>
+            </li>
           
         </ul>
-        </details>
-      </li>
+      </div>
+      <div class="mobile border-box flex-start">
+        
+          <div class="icon-item search search-popup-trigger"><i class="fas fa-search"></i></div>
+        
+        <div class="icon-item menu-bar">
+          <div class="menu-bar-middle"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-drawer">
+    <ul class="drawer-menu-list border-box">
       
+        
+        <li class="drawer-menu-item border-box not-sub-menu active">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/">
+              
+              首页
+            </a>
+            
+          </label>
+          
+        </li>
       
-      <li><a href="/archives">Archives</a></li>
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/archives">
+              
+              归档
+            </a>
+            
+          </label>
+          
+        </li>
       
-      <li><a href="/about">About</a></li>
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/categories">
+              
+              分类
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/tags">
+              
+              标签
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/about">
+              
+              关于
+            </a>
+            
+          </label>
+          
+        </li>
       
     </ul>
-  </section>
-</header>
-  <main class="main">
-    <div class="post-list">
-  
-  <section class="post-item">
-    <a class="post-item-title" href="/2022/11/06/go-graceful-shutdown/">Go 的优雅退出实现与探讨</a>
-    <div class="post-item-summary">
-      服务进程收到的终止信号通常来自人工 Ctrl+C、系统的 kill、容器编排平台或进程管理器。如果直接退出，正在处理的请求会被切断，缓冲中的数据、未提交的事务、未确认的消息都可能丢失。优雅退出要解决的问题是：停止接收新工作、处理完手头工作、按正确顺序释放资源，最后退出。
-本文先给出可直接使用的实现，再分析标准库的机制，最后讨论实践中容易踩的坑。
-1. 什么是优雅退出一个可用的优雅退出至少包含四件事：
+  </div>
 
-停止接收新请求：关闭监听端口，不再 accept 新连接；
-等待存量工作完
-      <a class="read-more" href="/2022/11/06/go-graceful-shutdown/"> ... </a>
+  <div class="window-mask"></div>
+
+</header>
+
+
     </div>
-    <div class="post-item-extra">
-      <div class="date">2022.11.06</div>
-      <div class="tags">
+
+    <div class="page-main-content-middle border-box">
+
+      <div class="main-content border-box">
         
-        <div class="tag-item">Go</div>
-        
-        <div class="tag-item">优雅退出</div>
-        
-        <div class="tag-item">signal</div>
-        
-      </div>
-    </div>
-  </section>
+
+          <div class="home-content-container fade-in-down-animation">
   
-  <section class="post-item">
-    <a class="post-item-title" href="/2022/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/">Go 的 defer 使用与原理</a>
-    <div class="post-item-summary">
-      defer 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。
-1. defer 的介绍defer 后面必须是函数或方法调用。执行到 defer 语句时，Go 会立即求值被调用的函数以及参数，但不会立即调用它；被登记的调用会在外层函数返回前执行。
-func example() &#123;
-    defer fmt.Println(&quot;cleanup&quot;)
-   
-      <a class="read-more" href="/2022/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/"> ... </a>
-    </div>
-    <div class="post-item-extra">
-      <div class="date">2022.11.02</div>
-      <div class="tags">
+  <ul class="home-post-list border-box">
+    
+      <li class="home-post-item">
+
         
-        <div class="tag-item">Go</div>
-        
-        <div class="tag-item">defer</div>
-        
-      </div>
-    </div>
-  </section>
+
+        <div class="home-post-item-bottom border-box">
+          
+          
+            <h3 class="home-post-title border-box">
+              <a href="/2022/11/06/go-graceful-shutdown/">
+                Go 的优雅退出实现与探讨
+              </a>
+            </h3>
+          
+
+          <div class="home-post-content keep-markdown-body">
+            
+              服务进程收到的终止信号通常来自人工 Ctrl+C、系统的 kill、容器编排平台或进程管理器。如果直接退出，正在处理的请求会被切断，缓冲中的数据、未提交的事务、未确认的消息都可能丢失。优雅退出要解决的问题是：停止接收新工作、处理完手头工作、按正确顺序...
+            
+          </div>
+
+          
+
+<div class="post-meta-info-container border-box home">
+  <div class="post-meta-info border-box">
+    
+      <span class="meta-info-item border-box">
+        <i class="icon fa-solid fa-file-circle-plus"></i>&nbsp;<span class="home-post-history"
+                                        data-updated="Sun Nov 06 2022 00:00:00 GMT+0800"
+        >2022-11-06 00:00:00</span>
+      </span>
+    
+
+    
+
+    
+      <span class="meta-info-item post-category border-box"><i class="icon fas fa-folder"></i>&nbsp;
+        <ul class="post-category-ul">
+          
+              <li class="category-item"><a href="/categories/go/">go</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+      <span class="post-tag meta-info-item border-box">
+        <ul class="post-tag-ul">
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Go/">Go</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/%E4%BC%98%E9%9B%85%E9%80%80%E5%87%BA/">优雅退出</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/signal/">signal</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+    
+    
+    
+  </div>
+
   
-  <section class="post-item">
-    <a class="post-item-title" href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/">秒杀学习总结</a>
-    <div class="post-item-summary">
-      架构原则：4要1不要
+    <a class="home-read-more" href="/2022/11/06/go-graceful-shutdown/">阅读全文&nbsp;<i class="icon fas fa-angle-right"></i></a>
+  
+</div>
+
+        </div>
+      </li>
+    
+      <li class="home-post-item">
+
+        
+
+        <div class="home-post-item-bottom border-box">
+          
+          
+            <h3 class="home-post-title border-box">
+              <a href="/2022/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/">
+                Go 的 defer 使用与原理
+              </a>
+            </h3>
+          
+
+          <div class="home-post-content keep-markdown-body">
+            
+              defer 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。
+1. defer 的介绍defer 后面必须是函数或方法调用。执行到 defer 语句时，...
+            
+          </div>
+
+          
+
+<div class="post-meta-info-container border-box home">
+  <div class="post-meta-info border-box">
+    
+      <span class="meta-info-item border-box">
+        <i class="icon fa-solid fa-file-circle-plus"></i>&nbsp;<span class="home-post-history"
+                                        data-updated="Wed Nov 02 2022 00:00:00 GMT+0800"
+        >2022-11-02 00:00:00</span>
+      </span>
+    
+
+    
+
+    
+      <span class="meta-info-item post-category border-box"><i class="icon fas fa-folder"></i>&nbsp;
+        <ul class="post-category-ul">
+          
+              <li class="category-item"><a href="/categories/go/">go</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+      <span class="post-tag meta-info-item border-box">
+        <ul class="post-tag-ul">
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Go/">Go</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/defer/">defer</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+    
+    
+    
+  </div>
+
+  
+    <a class="home-read-more" href="/2022/11/02/go-defer-%E4%BD%BF%E7%94%A8%E4%B8%8E%E5%8E%9F%E7%90%86/">阅读全文&nbsp;<i class="icon fas fa-angle-right"></i></a>
+  
+</div>
+
+        </div>
+      </li>
+    
+      <li class="home-post-item">
+
+        
+
+        <div class="home-post-item-bottom border-box">
+          
+          
+            <h3 class="home-post-title border-box">
+              <a href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/">
+                秒杀学习总结
+              </a>
+            </h3>
+          
+
+          <div class="home-post-content keep-markdown-body">
+            
+              架构原则：4要1不要
 数据要尽量少
 用户请求的数据能少就少，请求的数据包括上传给系统的数据和系统返回给用户的数据（通常就是网页）
 
 原因
 
-数据在网络传输上需要时间，往返都需要服务器做处理，同时写网络时需要做压缩，和字符编码，这些都非常消耗CPU，所以减少传输的数量可以显著减少CPU的使用。示例：简化秒杀页面的大小，去掉不必要的页面效果等
-数据能少就少还要求系统依赖的数据能少就少，包括系统完成某些业务逻辑需要读取和保存的数据，这些数据一般是和后台服务以及数据库打交道的，调用其
-      <a class="read-more" href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/"> ... </a>
-    </div>
-    <div class="post-item-extra">
-      <div class="date">2021.04.16</div>
-      <div class="tags">
-        
-      </div>
-    </div>
-  </section>
+数据在网络传输上需要时间，往返都需要服务器做处理，同时写网络时需要做压缩，和字符编码，这些都非常消耗CPU，所...
+            
+          </div>
+
+          
+
+<div class="post-meta-info-container border-box home">
+  <div class="post-meta-info border-box">
+    
+      <span class="meta-info-item border-box">
+        <i class="icon fa-solid fa-file-circle-plus"></i>&nbsp;<span class="home-post-history"
+                                        data-updated="Fri Apr 16 2021 15:43:14 GMT+0800"
+        >2021-04-16 15:43:14</span>
+      </span>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+    
+  </div>
+
   
-  <section class="post-item">
-    <a class="post-item-title" href="/2021/04/16/hello-world/">Hello World</a>
-    <div class="post-item-summary">
-      Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub.
-Quick StartCreate a new post$ hexo new &quot;
-      <a class="read-more" href="/2021/04/16/hello-world/"> ... </a>
-    </div>
-    <div class="post-item-extra">
-      <div class="date">2021.04.16</div>
-      <div class="tags">
-        
-      </div>
-    </div>
-  </section>
+    <a class="home-read-more" href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/">阅读全文&nbsp;<i class="icon fas fa-angle-right"></i></a>
   
 </div>
 
+        </div>
+      </li>
+    
+      <li class="home-post-item">
 
-  </main>
-  <footer class="footer">
+        
+
+        <div class="home-post-item-bottom border-box">
+          
+          
+            <h3 class="home-post-title border-box">
+              <a href="/2021/04/16/hello-world/">
+                Hello World
+              </a>
+            </h3>
+          
+
+          <div class="home-post-content keep-markdown-body">
+            
+              Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, yo...
+            
+          </div>
+
+          
+
+<div class="post-meta-info-container border-box home">
+  <div class="post-meta-info border-box">
+    
+      <span class="meta-info-item border-box">
+        <i class="icon fa-solid fa-file-circle-plus"></i>&nbsp;<span class="home-post-history"
+                                        data-updated="Fri Apr 16 2021 15:40:36 GMT+0800"
+        >2021-04-16 15:40:36</span>
+      </span>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+    
+  </div>
+
   
-  <span>Copyright © 2024 Li Zhengxing</span>
+    <a class="home-read-more" href="/2021/04/16/hello-world/">阅读全文&nbsp;<i class="icon fas fa-angle-right"></i></a>
+  
+</div>
+
+        </div>
+      </li>
+    
+  </ul>
+  
+
+
+
+</div>
+
+
+        
+      </div>
+    </div>
+
+    <div class="page-main-content-bottom border-box">
+      
+<footer class="footer border-box">
+  <div class="copyright-info info-item">
+  &copy;&nbsp;<span>2013</span>&nbsp;-&nbsp;2026
+  
+      &nbsp;<i class="fas fa-heart icon-animate"></i>&nbsp;&nbsp;<a href="/">Li Zhengxing</a>
+    
+  </div>
+
+  <div class="theme-info info-item">
+    由&nbsp;<a target="_blank" href="https://hexo.io">Hexo</a>&nbsp;驱动&nbsp;&&nbsp;主题&nbsp;<a class="keep-version" target="_blank" href="https://github.com/XPoet/hexo-theme-keep">Keep</a>
+  </div>
+
+  
+
+  
+
   
 </footer>
+
+    </div>
+  </div>
+
+  <!-- post tools -->
   
-<script src="/js/theme.js"></script>
+
+  <!-- side tools -->
+  <div class="side-tools">
+    <div class="side-tools-container border-box side-tools-show-handle">
+  <ul class="side-tools-list side-tools-show-handle border-box">
+    <li class="tools-item tool-font-adjust-plus flex-center">
+      <i class="fas fa-search-plus"></i>
+    </li>
+
+    <li class="tools-item tool-font-adjust-minus flex-center">
+      <i class="fas fa-search-minus"></i>
+    </li>
+
+    <!-- toggle chinese -->
+    
+      <li class="tools-item tool-toggle-chinese flex-center">
+        <button type="button"
+            data-native-script="cn"
+            data-opencc-src="/js/libs/opencc.full.js"
+            data-label-cn="切换为简体中文"
+            data-label-tw="切换为繁体中文"
+            data-label-error="简繁转换加载失败，点击重试"
+        >
+          繁
+        </button>
+      </li>
+    
+
+    <!-- toggle mode -->
+    
+      <li class="tools-item tool-toggle-theme-mode flex-center">
+        <i class="fas fa-moon"></i>
+      </li>
+    
+
+    <!-- rss -->
+    
+
+    <!-- to bottom -->
+    <li class="tools-item tool-scroll-to-bottom flex-center">
+      <i class="fas fa-arrow-down"></i>
+    </li>
+  </ul>
+
+  <ul class="exposed-tools-list border-box">
+    
+
+    
+
+    <li class="tools-item tool-toggle-show flex-center">
+      <i class="fas fa-cog fa-spin"></i>
+    </li>
+
+    <li class="tools-item tool-scroll-to-top flex-center show-arrow">
+      <i class="arrow fas fa-arrow-up"></i>
+      <span class="percent"></span>
+    </li>
+  </ul>
+</div>
+
+  </div>
+
+  <!-- image mask -->
+  <div class="zoom-in-image-mask">
+  <img class="zoom-in-image">
+</div>
+
+
+  <!-- local search -->
+  
+    <div class="search-pop-overlay">
+  <div class="popup search-popup">
+    <div class="search-header">
+      <span class="search-input-field-pre">
+      <i class="fas fa-keyboard"></i>
+      </span>
+      <div class="search-input-container">
+        <input autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            placeholder="搜索..."
+            spellcheck="false"
+            type="search"
+            class="search-input"
+        >
+      </div>
+      <span class="close-popup-btn">
+        <i class="fas fa-times"></i>
+      </span>
+    </div>
+    <div id="search-result">
+      <div id="no-result">
+        <i class="fas fa-spinner fa-pulse fa-5x fa-fw"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+  
+
+  <!-- tablet toc -->
+  
+</main>
+
+
+
+
+
+
+<!-- common js -->
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/header-shrink.js"></script>
+
+<script src="/js/back2top.js"></script>
+
+<script src="/js/toggle-theme.js"></script>
+
+<script src="/js/chinese-convert.js"></script>
+
+<script src="/js/code-block.js"></script>
+
+<script src="/js/main.js"></script>
+
+<script src="/js/libs/anime.min.js"></script>
+
+
+<!-- local search -->
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+<!-- lazyload -->
+
+
+<div class="">
+  <!-- home page -->
+  
+    
+<script src="/js/page/home-page.js"></script>
+
+  
+
+  <!-- post page -->
+  
+
+  <!-- categories page -->
+  
+
+  <!-- links page -->
+  
+
+  <!-- photos page -->
+  
+
+  <!-- tools page -->
+  
+</div>
+
+<!-- mermaid -->
+
+
+<!-- pjax -->
+
+
 
 </body>
-
 </html>

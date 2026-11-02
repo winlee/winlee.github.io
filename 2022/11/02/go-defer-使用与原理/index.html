@@ -1,93 +1,338 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="keywords" content="Hexo Theme Keep">
+  <meta name="description" content="Sharing thoughts and experiences about technology, programming, and life">
+  <meta name="author" content="Li Zhengxing">
+  
   <title>
     
-    Go 的 defer 使用与原理 丨
+      Go 的 defer 使用与原理 |
     
-
     Xing&#39;s Blog
   </title>
-
-  
-  <link rel="shortcut icon" href="/icon.svg">
-  
-
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-  
-  <link id="theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
-  <script src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
-  
-
-  <!-- 字体 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
-
-  
-<link rel="stylesheet" href="/css/root.css">
-
   
 <link rel="stylesheet" href="/css/style.css">
 
   
-<link rel="stylesheet" href="/css/post.css">
+    <link rel="shortcut icon" href="/favicon.svg">
+  
+  
+<link rel="stylesheet" href="/font/css/fontawesome.min.css">
 
+  
+<link rel="stylesheet" href="/font/css/regular.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/solid.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/brands.min.css">
+
+  
+  <script>
+    (function () {
+      let theme = localStorage.getItem('KEEP-THEME-STATUS');
+      let classname = "";
+      if (!theme || (JSON.parse(theme).isAutoTheme)){
+        classname = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? "dark-mode" : "light-mode";
+      }
+      else{
+        classname = JSON.parse(theme).isDark ? "dark-mode" : "light-mode";
+      }
+      document.documentElement.classList.add(classname);
+    })();
+  </script>
+  <script class="keep-theme-configurations">
+    const KEEP = window.KEEP || {}
+    KEEP.hexo_config = {"hostname":"winlee.github.io","root":"/","language":"zh-CN"}
+    KEEP.theme_config = {"base_info":{"primary_color":"#b84c4b","title":"Xing's Blog","author":"Li Zhengxing","avatar":null,"logo":"/favicon.svg","favicon":"/favicon.svg"},"menu":{"home":"/","archives":"/archives","categories":"/categories","tags":"/tags","about":"/about"},"first_screen":{"enable":true,"background_img":"/images/bg.svg","background_img_dark":"/images/bg.svg","description":"Go 后端、AI Agent 与工程实践","hitokoto":false},"social_contact":{"enable":true,"links":{"github":"https://github.com/winlee","weixin":null,"qq":null,"weibo":null,"zhihu":null,"twitter":null,"x":null,"facebook":null,"email":null}},"scroll":{"progress_bar":true,"percent":false,"hide_header":false},"home":{"announcement":null,"category":true,"tag":true,"post_datetime":"created"},"post":{"author_badge":{"enable":false,"level_badge":true,"custom_badge":["One","Two","Three"]},"word_count":{"word":false,"min2read":true},"datetime_format":"YYYY-MM-DD","copyright_info":false,"share":false,"reward":{"enable":false,"img_link":null,"text":null,"icon":null}},"code_block":{"tools":{"enable":true,"style":"mac"},"highlight_theme":"default"},"toc":{"enable":true,"number":true,"expand_all":true,"init_open":true,"layout":"right"},"website_count":{"busuanzi_count":{"enable":false,"site_uv":false,"site_pv":false,"page_pv":false}},"local_search":{"enable":true,"preload":false},"comment":{"enable":false,"use":"valine","valine":{"appid":null,"appkey":null,"server_urls":null,"placeholder":null},"gitalk":{"github_id":null,"github_admins":null,"repository":null,"client_id":null,"client_secret":null,"proxy":null},"twikoo":{"env_id":null,"region":null,"version":"2.0.8"},"waline":{"server_url":null,"reaction":false,"version":"3.15.2"},"giscus":{"repo":null,"repo_id":null,"category":"Announcements","category_id":null,"reactions_enabled":false},"artalk":{"server":null},"disqus":{"shortname":null}},"rss":{"enable":false},"lazyload":{"enable":false},"cdn":{"enable":false,"provider":"cdnjs","custom":{"enable":false,"url":null}},"pjax":{"enable":false},"footer":{"since":2013,"word_count":false,"site_deploy":{"enable":false,"provider":"github","url":null},"record":{"enable":false,"list":[{"code":null,"link":null}]}},"inject":{"enable":false,"css":[null],"js":[null]},"root":"","search_db_path":"keep-search.json","source_data":{},"version":"4.4.0"}
+    KEEP.language_ago = {"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"}
+    KEEP.language_code_block = {"copy":"复制代码","copied":"已复制","fold":"折叠代码块","folded":"已折叠"}
+    KEEP.language_copy_copyright = {"copy":"复制版权信息","copied":"已复制","title":"原文标题","author":"原文作者","link":"原文链接"}
+  </script>
 <meta name="generator" content="Hexo 7.3.0"></head>
 
+
 <body>
-  <header class="header">
-  <section class="header-container">
-    <a class="logo" href="/">Xing&#39;s Blog</a>
-    <ul class="nav">
-      
-      <li class="nav-dropdown">
-        <details>
-          <summary class="nav-dropdown-toggle">分类</summary>
-        <ul class="nav-dropdown-menu">
-          
-          <li><a href="/categories/go/">go</a></li>
-          
-          <li><a href="/categories/mysql/">mysql</a></li>
-          
-          <li><a href="/categories/redis/">redis</a></li>
-          
-          <li><a href="/categories/kafka/">kafka</a></li>
-          
-          <li><a href="/categories/leetcode/">leetcode</a></li>
-          
-        </ul>
-        </details>
-      </li>
-      
-      
-      <li><a href="/archives">Archives</a></li>
-      
-      <li><a href="/about">About</a></li>
-      
-    </ul>
-  </section>
-</header>
-  <main class="main">
-    <article class="post">
+<div class="progress-bar-container">
   
-  <div class="post-title">Go 的 defer 使用与原理</div>
-  <div class="post-meta">
-    <div class="date">2022 十一月 2日</div>
-    <div class="tags">
-      
-      <div class="tag-item">Go</div>
-      
-      <div class="tag-item">defer</div>
-      
-    </div>
-  </div>
+    <span class="scroll-progress-bar"></span>
   
 
-  <main class="post-content"><p><code>defer</code> 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。</p>
+  
+</div>
+
+
+
+<main class="page-container border-box">
+  <!-- home first screen  -->
+  
+
+  <!-- page content -->
+  <div class="page-main-content border-box">
+    <div class="page-main-content-top">
+      
+<header class="header-wrapper">
+
+  <div class="border-box header-content">
+    <div class="left flex-start border-box">
+      
+        <a class="logo-image border-box" href="/">
+          <img src="/favicon.svg">
+        </a>
+      
+      <a class="site-name border-box" href="/">
+        Xing&#39;s Blog
+      </a>
+    </div>
+
+    <div class="right border-box">
+      <div class="pc border-box">
+        <ul class="menu-list border-box">
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/">
+                
+                首页
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/archives">
+                
+                归档
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/categories">
+                
+                分类
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/tags">
+                
+                标签
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/about">
+                
+                关于
+                
+              </a>
+              
+            </li>
+          
+          
+            <li class="menu-item search search-popup-trigger">
+              <i class="menu-text-color fas search fa-search"></i>
+            </li>
+          
+        </ul>
+      </div>
+      <div class="mobile border-box flex-start">
+        
+          <div class="icon-item search search-popup-trigger"><i class="fas fa-search"></i></div>
+        
+        <div class="icon-item menu-bar">
+          <div class="menu-bar-middle"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-drawer">
+    <ul class="drawer-menu-list border-box">
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/">
+              
+              首页
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/archives">
+              
+              归档
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/categories">
+              
+              分类
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/tags">
+              
+              标签
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/about">
+              
+              关于
+            </a>
+            
+          </label>
+          
+        </li>
+      
+    </ul>
+  </div>
+
+  <div class="window-mask"></div>
+
+</header>
+
+
+    </div>
+
+    <div class="page-main-content-middle border-box">
+
+      <div class="main-content border-box">
+        
+
+          
+<div class="fade-in-down-animation">
+  <div class="post-page-container border-box">
+    <div class="post-content-container border-box">
+      
+
+      <div class="post-content-bottom border-box">
+        
+          <div class="post-title">
+            Go 的 defer 使用与原理
+          </div>
+        
+
+        
+          <div class="post-header border-box">
+            
+            <div class="info-box">
+              <div class="author border-box">
+                <span class="name">Li Zhengxing</span>
+                
+              </div>
+              <div class="meta-info border-box">
+                
+
+<div class="post-meta-info-container border-box post">
+  <div class="post-meta-info border-box">
+    
+
+    
+      <span class="meta-info-item post-create-date">
+        <i class="icon fa-solid fa-calendar-plus"></i>&nbsp;
+        <span class="datetime">2022-11-02</span>
+      </span>
+
+      
+        <span class="meta-info-item post-update-date">
+          <i class="icon fa-solid fa-file-pen"></i>&nbsp;
+          <span class="datetime" data-updated="Mon Nov 02 2026 21:14:57 GMT+0800">2026-11-02</span>
+        </span>
+      
+    
+
+    
+      <span class="meta-info-item post-category border-box"><i class="icon fas fa-folder"></i>&nbsp;
+        <ul class="post-category-ul">
+          
+              <li class="category-item"><a href="/categories/go/">go</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+      <span class="post-tag meta-info-item border-box">
+        <ul class="post-tag-ul">
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Go/">Go</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/defer/">defer</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+    
+      <span class="meta-info-item post-word-count">
+        <i class="icon fas fa-file-word"></i>&nbsp;<span>3.1k 字</span>
+      </span>
+    
+    
+      <span class="meta-info-item post-min2read">
+        <i class="icon fas fa-clock"></i>&nbsp;<span>11 分钟</span>
+      </span>
+    
+    
+  </div>
+
+  
+</div>
+
+              </div>
+            </div>
+          </div>
+        
+
+        <div class="post-content keep-markdown-body ">
+          
+
+          
+            <p><code>defer</code> 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。</p>
 <h2 id="1-defer-的介绍"><a href="#1-defer-的介绍" class="headerlink" title="1. defer 的介绍"></a>1. defer 的介绍</h2><p><code>defer</code> 后面必须是函数或方法调用。执行到 <code>defer</code> 语句时，Go 会立即求值被调用的函数以及参数，但不会立即调用它；被登记的调用会在外层函数返回前执行。</p>
 <pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
     <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;cleanup&quot;</span>)
@@ -270,31 +515,360 @@ d.sp = callerSP</code></pre>
 <h3 id="defer-不会自动捕获所有-panic"><a href="#defer-不会自动捕获所有-panic" class="headerlink" title="defer 不会自动捕获所有 panic"></a>defer 不会自动捕获所有 panic</h3><p>只有符合调用条件的 <code>recover</code> 才能停止当前 goroutine 的 panic 展开。不要把它当作跨 goroutine 的异常处理机制，也不要在没有明确恢复策略时吞掉 panic。</p>
 <h3 id="热路径中避免无依据地优化"><a href="#热路径中避免无依据地优化" class="headerlink" title="热路径中避免无依据地优化"></a>热路径中避免无依据地优化</h3><p><code>defer</code> 语义清晰，适合常规资源清理。若它位于极高频的性能热点，应先通过基准测试和性能分析确认开销，再决定是否改写；不要仅凭旧版本的性能结论一概避免使用。</p>
 <h2 id="5-参考文档"><a href="#5-参考文档" class="headerlink" title="5. 参考文档"></a>5. 参考文档</h2><ul>
-<li><a target="_blank" rel="noopener" href="https://go.dev/ref/spec#Defer_statements">Go 语言规范：Defer statements</a></li>
-<li><a target="_blank" rel="noopener" href="https://go.dev/blog/defer-panic-and-recover">Go 博客：Defer, Panic, and Recover</a></li>
-<li><a target="_blank" rel="noopener" href="https://go.dev/doc/go1.14#compiler">Go 1.14 发布说明：编译器对 defer 的优化</a></li>
-<li><a target="_blank" rel="noopener" href="https://go.dev/ref/spec#Return_statements">Go 语言规范：Return statements</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/walk/stmt.go">Go 1.25.12 编译器：defer 语句处理（walk&#x2F;stmt.go）</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/ssagen/ssa.go">Go 1.25.12 编译器：SSA、open-coded defer 与 deferreturn（ssagen&#x2F;ssa.go）</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/panic.go">Go 1.25.12 运行时：defer 注册、返回和 panic 展开（runtime&#x2F;panic.go）</a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Defer_statements" >Go 语言规范：Defer statements<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/blog/defer-panic-and-recover" >Go 博客：Defer, Panic, and Recover<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/doc/go1.14#compiler" >Go 1.14 发布说明：编译器对 defer 的优化<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Return_statements" >Go 语言规范：Return statements<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/walk/stmt.go" >Go 1.25.12 编译器：defer 语句处理（walk&#x2F;stmt.go）<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/cmd/compile/internal/ssagen/ssa.go" >Go 1.25.12 编译器：SSA、open-coded defer 与 deferreturn（ssagen&#x2F;ssa.go）<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/panic.go" >Go 1.25.12 运行时：defer 注册、返回和 panic 展开（runtime&#x2F;panic.go）<i class="fas fa-external-link-alt"></i></a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/runtime2.go">Go 1.25.12 运行时：<code>_defer</code> 与 <code>_panic</code> 结构（runtime&#x2F;runtime2.go）</a></li>
 </ul>
-</main>
 
-</article>
+          
+        </div>
+
+        
+
+        <div class="post-bottom-tags-and-share border-box">
+          <div>
+            
+              <ul class="post-tags-box border-box">
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/Go/">Go</a>
+                  </li>
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/defer/">defer</a>
+                  </li>
+                
+              </ul>
+            
+          </div>
+          <div>
+            
+          </div>
+        </div>
+
+        
+
+        
+          <div class="post-nav border-box">
+            
+              <div class="prev-post">
+                <a class="prev"
+                  rel="prev"
+                  href="/2022/11/06/go-graceful-shutdown/"
+                  title="Go 的优雅退出实现与探讨"
+                >
+                  <span class="left arrow-icon flex-center">
+                    <i class="fas fa-chevron-left"></i>
+                  </span>
+                  <span class="title flex-center">
+                    <span class="post-nav-title-item text-ellipsis">Go 的优雅退出实现与探讨</span>
+                    <span class="post-nav-item">上一篇</span>
+                  </span>
+                </a>
+              </div>
+            
+            
+              <div class="next-post">
+                <a class="next"
+                  rel="next"
+                  href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/"
+                  title="秒杀学习总结"
+                >
+                  <span class="title flex-center">
+                    <span class="post-nav-title-item text-ellipsis">秒杀学习总结</span>
+                    <span class="post-nav-item">下一篇</span>
+                  </span>
+                  <span class="right arrow-icon flex-center">
+                    <i class="fas fa-chevron-right"></i>
+                  </span>
+                </a>
+              </div>
+            
+          </div>
+        
+
+        
+          
 
 
-<script src="/js/highlight.js"></script>
 
-  </main>
-  <footer class="footer">
+
+
+
+        
+      </div>
+    </div>
+
+    
+      <div class="pc-post-toc right-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-defer-%E7%9A%84%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">1. defer 的介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-defer-%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">2. defer 的使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8A%E6%94%BE%E8%B5%84%E6%BA%90"><span class="nav-number">2.1.</span> <span class="nav-text">释放资源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91"><span class="nav-number">2.2.</span> <span class="nav-text">执行函数退出逻辑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%84%E7%90%86-panic"><span class="nav-number">2.3.</span> <span class="nav-text">处理 panic</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-defer-%E7%9A%84%E5%8E%9F%E7%90%86%EF%BC%9A%E4%BB%8E%E7%BC%96%E8%AF%91%E5%99%A8%E5%88%B0%E8%BF%90%E8%A1%8C%E6%97%B6"><span class="nav-number">3.</span> <span class="nav-text">3. defer 的原理：从编译器到运行时</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E7%BC%96%E8%AF%91%E5%99%A8%E5%85%88%E6%94%B9%E5%86%99-defer-%E8%B0%83%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 编译器先改写 defer 调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E5%BD%93%E5%89%8D%E7%BC%96%E8%AF%91%E5%99%A8%E7%9A%84%E4%B8%89%E7%A7%8D%E5%AE%9E%E7%8E%B0%E8%B7%AF%E5%BE%84"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 当前编译器的三种实现路径</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-A%EF%BC%9Aopen-coded-defer"><span class="nav-number">3.2.1.</span> <span class="nav-text">路径 A：open-coded defer</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-B%EF%BC%9Astack-allocated-defer"><span class="nav-number">3.2.2.</span> <span class="nav-text">路径 B：stack-allocated defer</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-C%EF%BC%9Aheap-allocated-defer"><span class="nav-number">3.2.3.</span> <span class="nav-text">路径 C：heap-allocated defer</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%AD%A3%E5%B8%B8%E8%BF%94%E5%9B%9E%EF%BC%9A%E8%BF%94%E5%9B%9E%E5%80%BC%E5%85%88%E7%A1%AE%E5%AE%9A%EF%BC%8C%E5%86%8D%E8%BF%90%E8%A1%8C-defer"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 正常返回：返回值先确定，再运行 defer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-panic-%E5%B1%95%E5%BC%80%EF%BC%9A%E8%BF%90%E8%A1%8C%E6%97%B6%E6%B2%BF%E6%A0%88%E5%B8%A7%E6%89%BE-defer"><span class="nav-number">3.4.</span> <span class="nav-text">3.4 panic 展开：运行时沿栈帧找 defer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E5%A6%82%E4%BD%95%E5%9C%A8%E6%9C%AC%E6%9C%BA%E8%A7%82%E5%AF%9F%E7%BC%96%E8%AF%91%E5%99%A8%E9%80%89%E6%8B%A9"><span class="nav-number">3.5.</span> <span class="nav-text">3.5 如何在本机观察编译器选择</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-defer-%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">4.</span> <span class="nav-text">4. defer 的注意事项</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E6%95%B0%E5%9C%A8%E7%99%BB%E8%AE%B0%E6%97%B6%E6%B1%82%E5%80%BC"><span class="nav-number">4.1.</span> <span class="nav-text">参数在登记时求值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BE%AA%E7%8E%AF%E4%B8%AD%E7%9A%84-defer-%E4%BC%9A%E7%AD%89%E5%87%BD%E6%95%B0%E8%BF%94%E5%9B%9E"><span class="nav-number">4.2.</span> <span class="nav-text">循环中的 defer 会等函数返回</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#deferred-%E8%B0%83%E7%94%A8%E7%9A%84%E8%BF%94%E5%9B%9E%E5%80%BC%E4%BC%9A%E8%A2%AB%E4%B8%A2%E5%BC%83"><span class="nav-number">4.3.</span> <span class="nav-text">deferred 调用的返回值会被丢弃</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E4%B8%AA-defer-%E7%9A%84%E9%A1%BA%E5%BA%8F%E6%98%AF%E5%8F%8D%E5%90%91%E7%9A%84"><span class="nav-number">4.4.</span> <span class="nav-text">多个 defer 的顺序是反向的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#defer-%E4%B8%8D%E4%BC%9A%E8%87%AA%E5%8A%A8%E6%8D%95%E8%8E%B7%E6%89%80%E6%9C%89-panic"><span class="nav-number">4.5.</span> <span class="nav-text">defer 不会自动捕获所有 panic</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%83%AD%E8%B7%AF%E5%BE%84%E4%B8%AD%E9%81%BF%E5%85%8D%E6%97%A0%E4%BE%9D%E6%8D%AE%E5%9C%B0%E4%BC%98%E5%8C%96"><span class="nav-number">4.6.</span> <span class="nav-text">热路径中避免无依据地优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%8F%82%E8%80%83%E6%96%87%E6%A1%A3"><span class="nav-number">5.</span> <span class="nav-text">5. 参考文档</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+
+        
+      </div>
+    </div>
+
+    <div class="page-main-content-bottom border-box">
+      
+<footer class="footer border-box">
+  <div class="copyright-info info-item">
+  &copy;&nbsp;<span>2013</span>&nbsp;-&nbsp;2026
   
-  <span>Copyright © 2024 Li Zhengxing</span>
+      &nbsp;<i class="fas fa-heart icon-animate"></i>&nbsp;&nbsp;<a href="/">Li Zhengxing</a>
+    
+  </div>
+
+  <div class="theme-info info-item">
+    由&nbsp;<a target="_blank" href="https://hexo.io">Hexo</a>&nbsp;驱动&nbsp;&&nbsp;主题&nbsp;<a class="keep-version" target="_blank" href="https://github.com/XPoet/hexo-theme-keep">Keep</a>
+  </div>
+
+  
+
+  
+
   
 </footer>
+
+    </div>
+  </div>
+
+  <!-- post tools -->
   
-<script src="/js/theme.js"></script>
+    <div class="post-tools right-toc">
+      <div class="post-tools-container border-box">
+  <ul class="post-tools-list border-box">
+    <!-- PC encrypt again -->
+    
+
+    <!-- PC TOC show toggle -->
+    
+      <li class="tools-item flex-center toggle-show-toc">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    <!-- PC go comment -->
+    
+
+    <!-- PC full screen -->
+    <li class="tools-item flex-center full-screen">
+      <i class="fa-solid fa-expand"></i>
+    </li>
+  </ul>
+</div>
+
+    </div>
+  
+
+  <!-- side tools -->
+  <div class="side-tools">
+    <div class="side-tools-container border-box ">
+  <ul class="side-tools-list side-tools-show-handle border-box">
+    <li class="tools-item tool-font-adjust-plus flex-center">
+      <i class="fas fa-search-plus"></i>
+    </li>
+
+    <li class="tools-item tool-font-adjust-minus flex-center">
+      <i class="fas fa-search-minus"></i>
+    </li>
+
+    <!-- toggle chinese -->
+    
+      <li class="tools-item tool-toggle-chinese flex-center">
+        <button type="button"
+            data-native-script="cn"
+            data-opencc-src="/js/libs/opencc.full.js"
+            data-label-cn="切换为简体中文"
+            data-label-tw="切换为繁体中文"
+            data-label-error="简繁转换加载失败，点击重试"
+        >
+          繁
+        </button>
+      </li>
+    
+
+    <!-- toggle mode -->
+    
+      <li class="tools-item tool-toggle-theme-mode flex-center">
+        <i class="fas fa-moon"></i>
+      </li>
+    
+
+    <!-- rss -->
+    
+
+    <!-- to bottom -->
+    <li class="tools-item tool-scroll-to-bottom flex-center">
+      <i class="fas fa-arrow-down"></i>
+    </li>
+  </ul>
+
+  <ul class="exposed-tools-list border-box">
+    
+      <li class="tools-item toggle-show-toc-tablet flex-center">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    
+
+    <li class="tools-item tool-toggle-show flex-center">
+      <i class="fas fa-cog fa-spin"></i>
+    </li>
+
+    <li class="tools-item tool-scroll-to-top flex-center show-arrow">
+      <i class="arrow fas fa-arrow-up"></i>
+      <span class="percent"></span>
+    </li>
+  </ul>
+</div>
+
+  </div>
+
+  <!-- image mask -->
+  <div class="zoom-in-image-mask">
+  <img class="zoom-in-image">
+</div>
+
+
+  <!-- local search -->
+  
+    <div class="search-pop-overlay">
+  <div class="popup search-popup">
+    <div class="search-header">
+      <span class="search-input-field-pre">
+      <i class="fas fa-keyboard"></i>
+      </span>
+      <div class="search-input-container">
+        <input autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            placeholder="搜索..."
+            spellcheck="false"
+            type="search"
+            class="search-input"
+        >
+      </div>
+      <span class="close-popup-btn">
+        <i class="fas fa-times"></i>
+      </span>
+    </div>
+    <div id="search-result">
+      <div id="no-result">
+        <i class="fas fa-spinner fa-pulse fa-5x fa-fw"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+  
+
+  <!-- tablet toc -->
+  
+    <div class="tablet-post-toc-mask">
+      <div class="tablet-post-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-defer-%E7%9A%84%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">1. defer 的介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-defer-%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">2. defer 的使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8A%E6%94%BE%E8%B5%84%E6%BA%90"><span class="nav-number">2.1.</span> <span class="nav-text">释放资源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E9%80%80%E5%87%BA%E9%80%BB%E8%BE%91"><span class="nav-number">2.2.</span> <span class="nav-text">执行函数退出逻辑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%84%E7%90%86-panic"><span class="nav-number">2.3.</span> <span class="nav-text">处理 panic</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-defer-%E7%9A%84%E5%8E%9F%E7%90%86%EF%BC%9A%E4%BB%8E%E7%BC%96%E8%AF%91%E5%99%A8%E5%88%B0%E8%BF%90%E8%A1%8C%E6%97%B6"><span class="nav-number">3.</span> <span class="nav-text">3. defer 的原理：从编译器到运行时</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E7%BC%96%E8%AF%91%E5%99%A8%E5%85%88%E6%94%B9%E5%86%99-defer-%E8%B0%83%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 编译器先改写 defer 调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E5%BD%93%E5%89%8D%E7%BC%96%E8%AF%91%E5%99%A8%E7%9A%84%E4%B8%89%E7%A7%8D%E5%AE%9E%E7%8E%B0%E8%B7%AF%E5%BE%84"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 当前编译器的三种实现路径</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-A%EF%BC%9Aopen-coded-defer"><span class="nav-number">3.2.1.</span> <span class="nav-text">路径 A：open-coded defer</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-B%EF%BC%9Astack-allocated-defer"><span class="nav-number">3.2.2.</span> <span class="nav-text">路径 B：stack-allocated defer</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%B7%AF%E5%BE%84-C%EF%BC%9Aheap-allocated-defer"><span class="nav-number">3.2.3.</span> <span class="nav-text">路径 C：heap-allocated defer</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%AD%A3%E5%B8%B8%E8%BF%94%E5%9B%9E%EF%BC%9A%E8%BF%94%E5%9B%9E%E5%80%BC%E5%85%88%E7%A1%AE%E5%AE%9A%EF%BC%8C%E5%86%8D%E8%BF%90%E8%A1%8C-defer"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 正常返回：返回值先确定，再运行 defer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-panic-%E5%B1%95%E5%BC%80%EF%BC%9A%E8%BF%90%E8%A1%8C%E6%97%B6%E6%B2%BF%E6%A0%88%E5%B8%A7%E6%89%BE-defer"><span class="nav-number">3.4.</span> <span class="nav-text">3.4 panic 展开：运行时沿栈帧找 defer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E5%A6%82%E4%BD%95%E5%9C%A8%E6%9C%AC%E6%9C%BA%E8%A7%82%E5%AF%9F%E7%BC%96%E8%AF%91%E5%99%A8%E9%80%89%E6%8B%A9"><span class="nav-number">3.5.</span> <span class="nav-text">3.5 如何在本机观察编译器选择</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-defer-%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">4.</span> <span class="nav-text">4. defer 的注意事项</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E6%95%B0%E5%9C%A8%E7%99%BB%E8%AE%B0%E6%97%B6%E6%B1%82%E5%80%BC"><span class="nav-number">4.1.</span> <span class="nav-text">参数在登记时求值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BE%AA%E7%8E%AF%E4%B8%AD%E7%9A%84-defer-%E4%BC%9A%E7%AD%89%E5%87%BD%E6%95%B0%E8%BF%94%E5%9B%9E"><span class="nav-number">4.2.</span> <span class="nav-text">循环中的 defer 会等函数返回</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#deferred-%E8%B0%83%E7%94%A8%E7%9A%84%E8%BF%94%E5%9B%9E%E5%80%BC%E4%BC%9A%E8%A2%AB%E4%B8%A2%E5%BC%83"><span class="nav-number">4.3.</span> <span class="nav-text">deferred 调用的返回值会被丢弃</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E4%B8%AA-defer-%E7%9A%84%E9%A1%BA%E5%BA%8F%E6%98%AF%E5%8F%8D%E5%90%91%E7%9A%84"><span class="nav-number">4.4.</span> <span class="nav-text">多个 defer 的顺序是反向的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#defer-%E4%B8%8D%E4%BC%9A%E8%87%AA%E5%8A%A8%E6%8D%95%E8%8E%B7%E6%89%80%E6%9C%89-panic"><span class="nav-number">4.5.</span> <span class="nav-text">defer 不会自动捕获所有 panic</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%83%AD%E8%B7%AF%E5%BE%84%E4%B8%AD%E9%81%BF%E5%85%8D%E6%97%A0%E4%BE%9D%E6%8D%AE%E5%9C%B0%E4%BC%98%E5%8C%96"><span class="nav-number">4.6.</span> <span class="nav-text">热路径中避免无依据地优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E5%8F%82%E8%80%83%E6%96%87%E6%A1%A3"><span class="nav-number">5.</span> <span class="nav-text">5. 参考文档</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    </div>
+  
+</main>
+
+
+
+
+
+<!-- common js -->
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/header-shrink.js"></script>
+
+<script src="/js/back2top.js"></script>
+
+<script src="/js/toggle-theme.js"></script>
+
+<script src="/js/chinese-convert.js"></script>
+
+<script src="/js/code-block.js"></script>
+
+<script src="/js/main.js"></script>
+
+<script src="/js/libs/anime.min.js"></script>
+
+
+<!-- local search -->
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+<!-- lazyload -->
+
+
+<div class="">
+  <!-- home page -->
+  
+
+  <!-- post page -->
+  
+    <!-- post-helper -->
+    
+<script src="/js/post/post-helper.js"></script>
+
+
+    <!-- toc -->
+    
+      
+<script src="/js/post/toc.js"></script>
+
+    
+
+    <!-- copyright-info -->
+    
+
+    <!-- share -->
+    
+  
+
+  <!-- categories page -->
+  
+
+  <!-- links page -->
+  
+
+  <!-- photos page -->
+  
+
+  <!-- tools page -->
+  
+</div>
+
+<!-- mermaid -->
+
+
+<!-- pjax -->
+
+
 
 </body>
-
 </html>
