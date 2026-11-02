@@ -233,14 +233,63 @@
 <li>一旦 <code>ctx.Done()</code> 触发，立即返回 <code>ctx.Err()</code>。</li>
 </ol>
 <p>轮询而不是事件通知，换来的是实现简单：每次检查都重新统计活跃连接，因此关闭期间的连接变化不需要额外同步。代价是关闭完成有一定延迟（最多约一个轮询周期），这也是 <code>Shutdown</code> 返回值不宜用来精确判断“何时完全停止”的原因。</p>
-<h2 id="6-实践探讨与常见坑"><a href="#6-实践探讨与常见坑" class="headerlink" title="6. 实践探讨与常见坑"></a>6. 实践探讨与常见坑</h2><h3 id="超时设置要与平台对齐"><a href="#超时设置要与平台对齐" class="headerlink" title="超时设置要与平台对齐"></a>超时设置要与平台对齐</h3><p>优雅关闭的超时应当<strong>小于</strong>平台的强制终止时间。以 Kubernetes 为例，默认 <code>terminationGracePeriodSeconds</code> 是 30 秒，如果 <code>Shutdown</code> 也等 30 秒，进程很可能在收尾阶段被 SIGKILL，连日志都写不完。实践上留出余量，比如 10 到 20 秒。</p>
-<p>同时，容器里还需要处理“信号已发出但负载均衡还没摘除”的窗口期，常见做法是加一个 <code>preStop</code> 延迟：</p>
+<h2 id="6-Kubernetes-终止流程与信号语义"><a href="#6-Kubernetes-终止流程与信号语义" class="headerlink" title="6. Kubernetes 终止流程与信号语义"></a>6. Kubernetes 终止流程与信号语义</h2><p>容器平台上的下线不是”发一个信号”这么简单，而是”摘流 + 等待 + 信号 + 兜底”的组合。理解信号语义，才能把 <code>preStop</code>、宽限期和进程内收尾安排明白。</p>
+<h3 id="SIGTERM-与-SIGKILL"><a href="#SIGTERM-与-SIGKILL" class="headerlink" title="SIGTERM 与 SIGKILL"></a>SIGTERM 与 SIGKILL</h3><table>
+<thead>
+<tr>
+<th>信号</th>
+<th>编号</th>
+<th>能否捕获</th>
+<th>语义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>SIGTERM</code></td>
+<td>15</td>
+<td>可以捕获</td>
+<td>“请求你退出”，进程可以自行决定何时退出，因此可以等待</td>
+</tr>
+<tr>
+<td><code>SIGKILL</code></td>
+<td>9</td>
+<td>不可捕获、不可忽略</td>
+<td>内核直接终止进程，没有任何清理机会，不会等待</td>
+</tr>
+</tbody></table>
+<h3 id="完整终止顺序"><a href="#完整终止顺序" class="headerlink" title="完整终止顺序"></a>完整终止顺序</h3><ol>
+<li>Pod 状态变为 <code>Terminating</code>，同时从 Service endpoints 中摘除（异步进行，可能比信号更晚完成）；</li>
+<li>执行 <code>preStop</code> hook（如果配置了），耗时计入宽限期；</li>
+<li>向容器内的 <strong>PID 1</strong> 发送 <code>SIGTERM</code>；</li>
+<li>应用捕获 <code>SIGTERM</code>，开始优雅关闭：停监听、等存量请求、关连接；</li>
+<li>宽限期（<code>terminationGracePeriodSeconds</code>）到期仍未退出，kubelet 发送 <code>SIGKILL</code>，进程立即死亡。</li>
+</ol>
+<p><code>preStop</code> 与 <code>SIGTERM</code> 是<strong>串行</strong>的：<code>preStop</code> 执行完毕才会发信号。宽限期从 Pod 开始终止时计时，<code>preStop</code> 里的 sleep 同样占用这段时间。</p>
 <pre><code class="highlight yaml"><span class="attr">lifecycle:</span>
   <span class="attr">preStop:</span>
     <span class="attr">exec:</span>
       <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;sleep 5&quot;</span>]
 <span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></code></pre>
 
+<p>上面这个配置意味着：应用真正可用于收尾的时间约为 25 秒，而不是 30 秒。</p>
+<h3 id="信号是发给-PID-1-的"><a href="#信号是发给-PID-1-的" class="headerlink" title="信号是发给 PID 1 的"></a>信号是发给 PID 1 的</h3><p>如果 entrypoint 写成 <code>sh -c &quot;./app&quot;</code> 而没有使用 <code>exec</code>，应用就不是 PID 1，<code>SIGTERM</code> 不会被转发，应用永远收不到信号，只能等 <code>SIGKILL</code>。这类问题的表现是”优雅退出代码写了但从不执行”。</p>
+<pre><code class="highlight dockerfile"><span class="comment"># 错误：shell 成为 PID 1，信号不会转发给 app</span>
+<span class="keyword">CMD</span><span class="language-bash"> ./app</span>
+
+<span class="comment"># 正确：exec 让 app 替换 shell，成为 PID 1</span>
+<span class="keyword">CMD</span><span class="language-bash"> [<span class="string">&quot;/app&quot;</span>]</span></code></pre>
+
+<h3 id="镜像可以覆盖停止信号"><a href="#镜像可以覆盖停止信号" class="headerlink" title="镜像可以覆盖停止信号"></a>镜像可以覆盖停止信号</h3><p>Dockerfile 的 <code>STOPSIGNAL</code> 会改变运行时发送的终止信号。例如 nginx 官方镜像使用 <code>SIGQUIT</code> 做优雅退出：</p>
+<pre><code class="highlight dockerfile"><span class="keyword">STOPSIGNAL</span> SIGQUIT</code></pre>
+
+<p>此时 Kubernetes 下发的就不是 <code>SIGTERM</code> 了。排查”信号处理没生效”时，先确认镜像声明的停止信号。</p>
+<h3 id="SIGINT-的定位"><a href="#SIGINT-的定位" class="headerlink" title="SIGINT 的定位"></a><code>SIGINT</code> 的定位</h3><p><code>SIGINT</code> 是终端里 <code>Ctrl+C</code> 触发的信号，Kubernetes <strong>不会</strong>发送它。本地开发时同时监听 <code>os.Interrupt</code> 和 <code>syscall.SIGTERM</code> 是常见做法，线上真正起作用的是 <code>SIGTERM</code>。</p>
+<h3 id="三者的分工"><a href="#三者的分工" class="headerlink" title="三者的分工"></a>三者的分工</h3><ul>
+<li><code>preStop</code>：解决”信号已发出，但流量还没摘干净”的竞态，通常就是短 sleep 或调用下线接口；</li>
+<li><code>SIGTERM</code>：解决”进程内部如何有序收尾”，业务逻辑写在这里；</li>
+<li><code>SIGKILL</code>：兜底，保证进程最终一定会死，所以收尾必须在宽限期内完成。</li>
+</ul>
+<p>需要强调的是：<code>SIGTERM</code> 的”等待”不是信号本身在等，而是<strong>进程捕获后主动延长了退出时间</strong>；<code>SIGKILL</code> 的”不等待”则是因为内核直接终止进程，用户态没有任何执行机会。</p>
+<h2 id="7-实践探讨与常见坑"><a href="#7-实践探讨与常见坑" class="headerlink" title="7. 实践探讨与常见坑"></a>7. 实践探讨与常见坑</h2><h3 id="超时设置要与平台对齐"><a href="#超时设置要与平台对齐" class="headerlink" title="超时设置要与平台对齐"></a>超时设置要与平台对齐</h3><p>优雅关闭的超时应当<strong>小于</strong>平台的强制终止时间。以 Kubernetes 为例，默认 <code>terminationGracePeriodSeconds</code> 是 30 秒，再减去 <code>preStop</code> 的耗时；如果 <code>Shutdown</code> 也按 30 秒等，进程很可能在收尾阶段被 <code>SIGKILL</code>，连日志都写不完。实践上留出余量，比如 10 到 20 秒。</p>
 <h3 id="二次信号：要么强制退出，要么恢复默认"><a href="#二次信号：要么强制退出，要么恢复默认" class="headerlink" title="二次信号：要么强制退出，要么恢复默认"></a>二次信号：要么强制退出，要么恢复默认</h3><p>两种常见策略：</p>
 <pre><code class="highlight go"><span class="comment">// 策略一：自己接管第二次信号</span>
 sigCh := <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)
@@ -263,12 +312,14 @@ stop() <span class="comment">// 之后再次 Ctrl+C 直接终止</span></code></
 <h3 id="Windows-与-Linux-的信号差异"><a href="#Windows-与-Linux-的信号差异" class="headerlink" title="Windows 与 Linux 的信号差异"></a>Windows 与 Linux 的信号差异</h3><p><code>syscall.SIGTERM</code> 在 Windows 上不会被外部正常发送，<code>signal.Notify</code> 注册它没有实际作用；Windows 下通常只有 <code>Ctrl+C</code>（<code>os.Interrupt</code>）和 <code>Ctrl+Break</code>。因此优雅退出的行为差异最好在 Linux 环境或 WSL 中验证。</p>
 <h3 id="只关监听器不等于关连接池"><a href="#只关监听器不等于关连接池" class="headerlink" title="只关监听器不等于关连接池"></a>只关监听器不等于关连接池</h3><p>进程退出前还应关闭 HTTP 客户端的空闲连接（<code>http.Transport.CloseIdleConnections</code>）、消息消费者和数据库连接池。只关闭自己的 Server，不会自动清理这些外部资源。</p>
 <h3 id="幂等与并发"><a href="#幂等与并发" class="headerlink" title="幂等与并发"></a>幂等与并发</h3><p><code>Shutdown</code> 可能被多个路径触发（信号、健康检查失败、管理接口）。用一个 <code>sync.Once</code> 或原子标志包住整个关闭流程，避免重复关停导致日志混乱或二次关闭错误。</p>
-<h2 id="7-参考文档"><a href="#7-参考文档" class="headerlink" title="7. 参考文档"></a>7. 参考文档</h2><ul>
+<h2 id="8-参考文档"><a href="#8-参考文档" class="headerlink" title="8. 参考文档"></a>8. 参考文档</h2><ul>
 <li><a target="_blank" rel="noopener" href="https://pkg.go.dev/os/signal">Go 语言规范之外：os&#x2F;signal 包文档</a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/os/signal/signal.go">os&#x2F;signal.NotifyContext 源码（Go 1.25）</a></li>
 <li><a target="_blank" rel="noopener" href="https://pkg.go.dev/net/http#Server.Shutdown">net&#x2F;http.Server.Shutdown 文档</a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/net/http/server.go">net&#x2F;http 服务端源码（Go 1.25）</a></li>
 <li><a target="_blank" rel="noopener" href="https://go.dev/blog/context">Go 博客：Contexts and Cancellation</a></li>
+<li><a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/signal.7.html">Linux signal(7)：信号语义与默认行为</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.docker.com/reference/dockerfile/#stopsignal">Docker 文档：STOPSIGNAL</a></li>
 <li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination">Kubernetes 文档：Pod 生命周期与优雅终止</a></li>
 </ul>
 </main>
