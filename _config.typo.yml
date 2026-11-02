@@ -2,6 +2,13 @@ title: Xing's Blog
 favicon: /icon.svg
 icon: /icon.svg
 
+categories_menu:
+  - go
+  - mysql
+  - redis
+  - kafka
+  - leetcode
+
 menu:
   Archives: /archives
   About: /about

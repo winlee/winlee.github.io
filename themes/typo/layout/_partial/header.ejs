@@ -2,6 +2,16 @@
   <section class="header-container">
     <a class="logo" href="<%- url_for() %>"><%= config.title %></a>
     <ul class="nav">
+      <% if (theme.categories_menu && theme.categories_menu.length) { %>
+      <li class="nav-dropdown">
+        <span class="nav-dropdown-toggle" tabindex="0" role="button">分类</span>
+        <ul class="nav-dropdown-menu">
+          <% theme.categories_menu.forEach(function (cat) { %>
+          <li><a href="<%- url_for('/categories/' + cat + '/') %>"><%= cat %></a></li>
+          <% }); %>
+        </ul>
+      </li>
+      <% } %>
       <% for (name in theme.menu) { %>
       <li><a href="<%- url_for(theme.menu[name]) %>"><%= name %></a></li>
       <% } %>
