@@ -3,6 +3,7 @@ favicon: /icon.svg
 icon: /icon.svg
 
 menu:
-  archives: /archives
+  Archives: /archives
+  About: /about
 
 copyright: 2024 Li Zhengxing
