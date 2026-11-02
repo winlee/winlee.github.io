@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="keywords" content="Hexo Theme Keep">
+  <meta name="description" content="Sharing thoughts and experiences about technology, programming, and life">
+  <meta name="author" content="Jensen">
+  
+  <title>
+    
+      Go 的数据结构 Map 以及并发支持演进 |
+    
+    Xing&#39;s Blog
+  </title>
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    <link rel="shortcut icon" href="/favicon.svg">
+  
+  
+<link rel="stylesheet" href="/font/css/fontawesome.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/regular.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/solid.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/brands.min.css">
+
+  
+  <script>
+    (function () {
+      let theme = localStorage.getItem('KEEP-THEME-STATUS');
+      let classname = "";
+      if (!theme || (JSON.parse(theme).isAutoTheme)){
+        classname = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? "dark-mode" : "light-mode";
+      }
+      else{
+        classname = JSON.parse(theme).isDark ? "dark-mode" : "light-mode";
+      }
+      document.documentElement.classList.add(classname);
+    })();
+  </script>
+  <script class="keep-theme-configurations">
+    const KEEP = window.KEEP || {}
+    KEEP.hexo_config = {"hostname":"winlee.github.io","root":"/","language":"zh-CN"}
+    KEEP.theme_config = {"base_info":{"primary_color":"#b84c4b","title":"Xing's Blog","author":"Jensen","avatar":null,"logo":"/favicon.svg","favicon":"/favicon.svg"},"menu":{"home":"/","archives":"/archives","categories":"/categories","tags":"/tags","about":"/about"},"first_screen":{"enable":true,"background_img":"/images/bg.svg","background_img_dark":"/images/bg.svg","description":"Go 后端、AI Agent 与工程实践","hitokoto":false},"social_contact":{"enable":true,"links":{"github":"https://github.com/winlee","weixin":null,"qq":null,"weibo":null,"zhihu":null,"twitter":null,"x":null,"facebook":null,"email":null}},"scroll":{"progress_bar":true,"percent":false,"hide_header":false},"home":{"announcement":null,"category":true,"tag":true,"post_datetime":"created"},"post":{"author_badge":{"enable":false,"level_badge":true,"custom_badge":["One","Two","Three"]},"word_count":{"word":false,"min2read":true},"datetime_format":"YYYY-MM-DD","copyright_info":false,"share":false,"reward":{"enable":false,"img_link":null,"text":null,"icon":null}},"code_block":{"tools":{"enable":true,"style":"default"},"highlight_theme":"default"},"toc":{"enable":true,"number":true,"expand_all":true,"init_open":true,"layout":"right"},"website_count":{"busuanzi_count":{"enable":false,"site_uv":false,"site_pv":false,"page_pv":false}},"local_search":{"enable":true,"preload":false},"comment":{"enable":false,"use":"valine","valine":{"appid":null,"appkey":null,"server_urls":null,"placeholder":null},"gitalk":{"github_id":null,"github_admins":null,"repository":null,"client_id":null,"client_secret":null,"proxy":null},"twikoo":{"env_id":null,"region":null,"version":"2.0.8"},"waline":{"server_url":null,"reaction":false,"version":"3.15.2"},"giscus":{"repo":null,"repo_id":null,"category":"Announcements","category_id":null,"reactions_enabled":false},"artalk":{"server":null},"disqus":{"shortname":null}},"rss":{"enable":false},"lazyload":{"enable":false},"cdn":{"enable":false,"provider":"cdnjs","custom":{"enable":false,"url":null}},"pjax":{"enable":false},"footer":{"since":2013,"word_count":false,"site_deploy":{"enable":false,"provider":"github","url":null},"record":{"enable":false,"list":[{"code":null,"link":null}]}},"inject":{"enable":false,"css":[null],"js":[null]},"root":"","search_db_path":"keep-search.json","source_data":{},"version":"4.4.0"}
+    KEEP.language_ago = {"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"}
+    KEEP.language_code_block = {"copy":"复制代码","copied":"已复制","fold":"折叠代码块","folded":"已折叠"}
+    KEEP.language_copy_copyright = {"copy":"复制版权信息","copied":"已复制","title":"原文标题","author":"原文作者","link":"原文链接"}
+  </script>
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+<div class="progress-bar-container">
+  
+    <span class="scroll-progress-bar"></span>
+  
+
+  
+</div>
+
+
+
+<main class="page-container border-box">
+  <!-- home first screen  -->
+  
+
+  <!-- page content -->
+  <div class="page-main-content border-box">
+    <div class="page-main-content-top">
+      
+<header class="header-wrapper">
+
+  <div class="border-box header-content">
+    <div class="left flex-start border-box">
+      
+        <a class="logo-image border-box" href="/">
+          <img src="/favicon.svg">
+        </a>
+      
+      <a class="site-name border-box" href="/">
+        Xing&#39;s Blog
+      </a>
+    </div>
+
+    <div class="right border-box">
+      <div class="pc border-box">
+        <ul class="menu-list border-box">
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/">
+                
+                首页
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/archives">
+                
+                归档
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/categories">
+                
+                分类
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/tags">
+                
+                标签
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/about">
+                
+                关于
+                
+              </a>
+              
+            </li>
+          
+          
+            <li class="menu-item search search-popup-trigger">
+              <i class="menu-text-color fas search fa-search"></i>
+            </li>
+          
+        </ul>
+      </div>
+      <div class="mobile border-box flex-start">
+        
+          <div class="icon-item search search-popup-trigger"><i class="fas fa-search"></i></div>
+        
+        <div class="icon-item menu-bar">
+          <div class="menu-bar-middle"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-drawer">
+    <ul class="drawer-menu-list border-box">
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/">
+              
+              首页
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/archives">
+              
+              归档
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/categories">
+              
+              分类
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/tags">
+              
+              标签
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/about">
+              
+              关于
+            </a>
+            
+          </label>
+          
+        </li>
+      
+    </ul>
+  </div>
+
+  <div class="window-mask"></div>
+
+</header>
+
+
+    </div>
+
+    <div class="page-main-content-middle border-box">
+
+      <div class="main-content border-box">
+        
+
+          
+<div class="fade-in-down-animation">
+  <div class="post-page-container border-box">
+    <div class="post-content-container border-box">
+      
+
+      <div class="post-content-bottom border-box">
+        
+          <div class="post-title">
+            Go 的数据结构 Map 以及并发支持演进
+          </div>
+        
+
+        
+          <div class="post-header border-box">
+            
+            <div class="info-box">
+              <div class="author border-box">
+                <span class="name">Jensen</span>
+                
+              </div>
+              <div class="meta-info border-box">
+                
+
+<div class="post-meta-info-container border-box post">
+  <div class="post-meta-info border-box">
+    
+
+    
+      <span class="meta-info-item post-create-date">
+        <i class="icon fa-solid fa-calendar-plus"></i>&nbsp;
+        <span class="datetime">2022-12-15</span>
+      </span>
+
+      
+    
+
+    
+      <span class="meta-info-item post-category border-box"><i class="icon fas fa-folder"></i>&nbsp;
+        <ul class="post-category-ul">
+          
+              <li class="category-item"><a href="/categories/go/">go</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+      <span class="post-tag meta-info-item border-box">
+        <ul class="post-tag-ul">
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Go/">Go</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/%E5%B9%B6%E5%8F%91/">并发</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Map/">Map</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+    
+      <span class="meta-info-item post-word-count">
+        <i class="icon fas fa-file-word"></i>&nbsp;<span>2.8k 字</span>
+      </span>
+    
+    
+      <span class="meta-info-item post-min2read">
+        <i class="icon fas fa-clock"></i>&nbsp;<span>11 分钟</span>
+      </span>
+    
+    
+  </div>
+
+  
+</div>
+
+              </div>
+            </div>
+          </div>
+        
+
+        <div class="post-content keep-markdown-body ">
+          
+
+          
+            <blockquote>
+<p>日期说明：本文按你的要求保留 2022-12-15 作为文章归档日期；“并发支持演进”部分会讨论之后的 Go 版本，不代表这些后续实现已在 2022 年发布。实现观察以 Go 1.25.12 为准，运行时细节属于实现而非语言规范。</p>
+</blockquote>
+<h2 id="1-Map-是什么"><a href="#1-Map-是什么" class="headerlink" title="1. Map 是什么"></a>1. Map 是什么</h2><p>Go 内建 <code>map</code> 是按键索引的无序集合。每个键对应至多一个值：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">scores := <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;</span><br><span class="line">    <span class="string">&quot;Go&quot;</span>:     <span class="number">95</span>,</span><br><span class="line">    <span class="string">&quot;Rust&quot;</span>:   <span class="number">90</span>,</span><br><span class="line">    <span class="string">&quot;Python&quot;</span>: <span class="number">88</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">scores[<span class="string">&quot;Go&quot;</span>] = <span class="number">98</span></span><br><span class="line">value, ok := scores[<span class="string">&quot;Rust&quot;</span>]</span><br><span class="line"><span class="built_in">delete</span>(scores, <span class="string">&quot;Python&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>Map 是引用语义的数据结构。赋值会复制 map 值所持有的引用，而非复制所有键值对：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">left := <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;<span class="string">&quot;count&quot;</span>: <span class="number">1</span>&#125;</span><br><span class="line">right := left</span><br><span class="line">right[<span class="string">&quot;count&quot;</span>]++</span><br><span class="line"><span class="comment">// left[&quot;count&quot;] 也变成 2</span></span><br></pre></td></tr></table></figure>
+
+<p>因此，多个变量可能指向同一份底层 map；并发访问是否安全取决于所有访问是否正确同步。</p>
+<h2 id="2-键类型、nil-与零值"><a href="#2-键类型、nil-与零值" class="headerlink" title="2. 键类型、nil 与零值"></a>2. 键类型、nil 与零值</h2><p>Map 的键必须是可比较类型，因为运行时需要对键进行相等比较。常见可用类型包括布尔、数值、字符串、指针、Channel、接口，以及字段或元素都可比较的数组和结构体。slice、map 和函数类型不能作为键。</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Route <span class="keyword">struct</span> &#123;</span><br><span class="line">    Method <span class="type">string</span></span><br><span class="line">    Path   <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">routes := <span class="keyword">map</span>[Route]<span class="type">int</span>&#123;</span><br><span class="line">    &#123;Method: <span class="string">&quot;GET&quot;</span>, Path: <span class="string">&quot;/health&quot;</span>&#125;: <span class="number">200</span>,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接口类型作为键时，接口的动态值也必须可比较；如果动态值是 slice 等不可比较类型，执行相关 map 操作会在运行时 panic。<code>NaN</code> 是可比较浮点值，但它不等于自身，这种键的查找和删除行为不适合用普通相等直觉推断，设计键时最好避开。</p>
+<p>未初始化 map 的零值是 nil：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> m <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span></span><br><span class="line">fmt.Println(m[<span class="string">&quot;missing&quot;</span>]) <span class="comment">// 0</span></span><br><span class="line">fmt.Println(<span class="built_in">len</span>(m))        <span class="comment">// 0</span></span><br><span class="line">m[<span class="string">&quot;new&quot;</span>] = <span class="number">1</span>               <span class="comment">// panic: assignment to entry in nil map</span></span><br></pre></td></tr></table></figure>
+
+<p>nil map 可以安全读取、取长度、删除元素，但不能写入。<code>make(map[K]V)</code> 创建可写的空 map；可选容量参数只是初始容量提示，不是最大容量，也不要求运行时精确按该值分配。</p>
+<p>如果只读取一个键，缺失时会得到值类型零值。需要区分“键不存在”和“键存在、值恰好为零”时，使用双返回值形式：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">count, exists := m[<span class="string">&quot;requests&quot;</span>]</span><br><span class="line"><span class="keyword">if</span> !exists &#123;</span><br><span class="line">    <span class="comment">// 键不存在</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-更新值与遍历语义"><a href="#3-更新值与遍历语义" class="headerlink" title="3. 更新值与遍历语义"></a>3. 更新值与遍历语义</h2><p>Map 元素不是可取地址的变量，不能写 <code>&amp;m[key]</code>。若 map 的值是结构体，读取 <code>m[key]</code> 得到的是值副本；修改副本不会更新 map：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Counter <span class="keyword">struct</span>&#123; Value <span class="type">int</span> &#125;</span><br><span class="line"></span><br><span class="line">counters := <span class="keyword">map</span>[<span class="type">string</span>]Counter&#123;<span class="string">&quot;api&quot;</span>: &#123;Value: <span class="number">1</span>&#125;&#125;</span><br><span class="line">c := counters[<span class="string">&quot;api&quot;</span>]</span><br><span class="line">c.Value++</span><br><span class="line">counters[<span class="string">&quot;api&quot;</span>] = c <span class="comment">// 必须写回</span></span><br></pre></td></tr></table></figure>
+
+<p>也可以把值类型设计为指针，但这会改变所有权、共享和内存回收特征，应结合领域模型选择。</p>
+<p>Map 遍历顺序没有规范保证，不同遍历之间也不保证一致。不要依赖它做排序或稳定序列化；需要稳定输出时，先收集键，再显式排序。</p>
+<p>遍历期间删除尚未访问的键时，该键不会再产生；遍历期间新增的键可能会被访问，也可能被跳过。具体选择不保证固定。即便某个实现通过随机化使顺序看起来经常改变，也不能把这种实现策略当作语言层面的承诺。</p>
+<h2 id="4-并发读写为什么需要同步"><a href="#4-并发读写为什么需要同步" class="headerlink" title="4. 并发读写为什么需要同步"></a>4. 并发读写为什么需要同步</h2><p>普通 map 不支持无同步的并发写，也不支持一个 goroutine 写、另一个 goroutine 同时读。并发读也只有在没有并发写入或其他修改时才可安全进行。未同步读写属于数据竞争，运行时可能报告 <code>concurrent map read and map write</code> 或 <code>concurrent map writes</code>，但不能把这条诊断当成安全机制：有些竞态不会按预期触发该错误，程序仍然是错误的。</p>
+<h3 id="4-1-Mutex：最常见、最明确"><a href="#4-1-Mutex：最常见、最明确" class="headerlink" title="4.1 Mutex：最常见、最明确"></a>4.1 Mutex：最常见、最明确</h3><p>当多个 goroutine 需要访问同一个 map，且存在更新操作时，用互斥锁覆盖 map 操作：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Counter <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu sync.RWMutex</span><br><span class="line">    m  <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *Counter)</span></span> Add(key <span class="type">string</span>, delta <span class="type">int</span>) &#123;</span><br><span class="line">    c.mu.Lock()</span><br><span class="line">    c.m[key] += delta</span><br><span class="line">    c.mu.Unlock()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *Counter)</span></span> Get(key <span class="type">string</span>) <span class="type">int</span> &#123;</span><br><span class="line">    c.mu.RLock()</span><br><span class="line">    value := c.m[key]</span><br><span class="line">    c.mu.RUnlock()</span><br><span class="line">    <span class="keyword">return</span> value</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>RWMutex</code> 允许多个读者并行，但写者仍需独占；在读写混合或临界区很短时，它未必比 <code>Mutex</code> 更快。应先使用简单、正确的锁保护，再通过基准测试决定是否需要优化。锁必须保护完整的复合操作，例如“读取、判断、更新”不能只锁其中一个步骤。</p>
+<h3 id="4-2-分片锁：提高不同键之间的并行度"><a href="#4-2-分片锁：提高不同键之间的并行度" class="headerlink" title="4.2 分片锁：提高不同键之间的并行度"></a>4.2 分片锁：提高不同键之间的并行度</h3><p>若单个锁确实形成热点，可以把键按稳定哈希分配到多个 map 分片，每个分片配一把锁。不同分片上的操作就有机会并行。但分片带来额外复杂度：遍历或快照要按一致的加锁顺序获取多把锁，哈希函数和分片数也会影响负载均衡。分片不是默认方案，需要有性能数据支持。</p>
+<h3 id="4-3-sync-Map：专用并发-Map"><a href="#4-3-sync-Map：专用并发-Map" class="headerlink" title="4.3 sync.Map：专用并发 Map"></a>4.3 sync.Map：专用并发 Map</h3><p>Go 1.9 引入 <code>sync.Map</code>，它提供并发安全的 <code>Load</code>、<code>Store</code>、<code>Delete</code> 等操作。它使用 <code>any</code> 类型的键和值，读写时需要做类型断言或封装。标准库文档特别推荐的模式包括：</p>
+<ol>
+<li>某个键写入一次，之后读取很多次，例如只增长的缓存；</li>
+<li>多个 goroutine 操作互不重叠的一组键。</li>
+</ol>
+<p>一般应用若需要强类型约束、复合不变量或统一遍历快照，<code>map[K]V</code> 加 <code>Mutex</code> 往往更清晰。<code>sync.Map</code> 的安全性也只覆盖它本身的操作，不会自动保护存进 value 的可变对象。</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> cache sync.Map</span><br><span class="line">cache.Store(<span class="string">&quot;config&quot;</span>, config)</span><br><span class="line"></span><br><span class="line">value, ok := cache.Load(<span class="string">&quot;config&quot;</span>)</span><br><span class="line"><span class="keyword">if</span> ok &#123;</span><br><span class="line">    config := value.(*Config)</span><br><span class="line">    _ = config</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不要把 <code>Load</code>、业务判断、<code>Store</code> 三个独立操作误认为一个原子事务；需要复合原子性时应使用 <code>LoadOrStore</code>、<code>CompareAndSwap</code> 等合适方法，或采用互斥锁保护业务状态。</p>
+<h2 id="5-Map-实现的历史演进"><a href="#5-Map-实现的历史演进" class="headerlink" title="5. Map 实现的历史演进"></a>5. Map 实现的历史演进</h2><p>语言规范定义了 Map 的行为，但不规定哈希表的具体内存布局。理解历史实现可以解释不少性能文章中的术语，不过不能将这些细节推广为长期兼容承诺。</p>
+<h3 id="5-1-传统-bucket-实现"><a href="#5-1-传统-bucket-实现" class="headerlink" title="5.1 传统 bucket 实现"></a>5.1 传统 bucket 实现</h3><p>长期以来，Go 的内建 map 使用桶（bucket）组织数据。旧实现的 <code>hmap</code> 保存元素数量、桶数量的对数、哈希种子、当前桶数组、扩容中的旧桶数组和迁移进度等信息。一个 bucket 通常可容纳 8 个键值对，并保存哈希高位信息；冲突过多时通过 overflow bucket 延伸。扩容时，旧数据会逐步搬迁到新桶，而不一定一次性完成全部迁移。</p>
+<p>这种设计在 Go 1.23 及之前的默认实现中广为人知。Go 1.24 引入新的 Swiss Table 风格实现后，旧实现仍保留为实验切换选项（<code>GOEXPERIMENT=noswissmap</code>），可用于理解历史行为或进行对照测试，但不应再笼统称为当前默认布局。</p>
+<h3 id="5-2-Go-1-24：Swiss-Table-风格的内建-map"><a href="#5-2-Go-1-24：Swiss-Table-风格的内建-map" class="headerlink" title="5.2 Go 1.24：Swiss Table 风格的内建 map"></a>5.2 Go 1.24：Swiss Table 风格的内建 map</h3><p>Go 1.24 的发布说明宣布内建 map 改为基于 Swiss Tables 的实现，目标之一是降低运行时开销。Go 1.25.12 的 <code>internal/runtime/maps</code> 源码说明了其主要结构：</p>
+<ul>
+<li>一个 group 有 8 个键值槽位，并配有一个 control word；</li>
+<li>control word 的每个字节表示槽位状态，已占用时还保存哈希的 7 位摘要（H2）；</li>
+<li>哈希的 H1 部分用于选择初始 group，再按探测序列继续查找；</li>
+<li>通过对 control word 做位操作，可并行筛查一组槽位的 H2，再对候选键做完整比较；</li>
+<li>map 由一个或多个 table 组成，借助目录与 extendible hashing 将哈希空间分配到 table，并允许局部 table 扩容或拆分。</li>
+</ul>
+<p>重要的是，算法和布局变化并没有改变 Go 程序的 Map 使用契约：键仍需可比较，遍历顺序仍未指定，普通 map 仍需外部同步。不要根据“新实现更快”就推断所有工作负载都一定加速；性能需在真实数据分布、键和值类型、读写比例以及目标 Go 版本上测量。</p>
+<h2 id="6-sync-Map-的实现也在演进"><a href="#6-sync-Map-的实现也在演进" class="headerlink" title="6. sync.Map 的实现也在演进"></a>6. sync.Map 的实现也在演进</h2><p><code>sync.Map</code> 与内建 map 是两件不同的事：内建 map 是语言类型；<code>sync.Map</code> 是标准库提供的并发安全容器。Go 1.9 的 <code>sync.Map</code> 文档介绍了并发 map 类型。传统实现采用只读部分与 dirty map 等结构，让部分读取路径可以无锁执行，并在需要时通过锁和 miss 计数完成状态迁移。</p>
+<p>Go 1.24 改进了 <code>sync.Map</code> 的实现，发布说明提到对修改操作，尤其是大型 map 中修改不相交键，以及低竞争读取的启动阶段进行了优化。Go 1.25.12 源码中，<code>sync.Map</code> 仍默认使用 read&#x2F;dirty 结构；另一个基于 Hash Trie 的实现位于实验 build tag <code>goexperiment.synchashtriemap</code> 下。因此，讲“并发支持演进”时应区分标准 API 契约、正式版本默认实现和实验性实现，不能把实验代码误写成默认行为。</p>
+<p>无论具体内部实现如何变化，<code>sync.Map</code> 都不能使普通 map 自动线程安全，也不意味着所有并发 map 都应该换成 <code>sync.Map</code>。类型安全、操作组合和基准测试仍是选择依据。</p>
+<h2 id="7-如何选择"><a href="#7-如何选择" class="headerlink" title="7. 如何选择"></a>7. 如何选择</h2><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>常见选择</th>
+<th>需要留意</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单 goroutine 管理状态</td>
+<td>普通 <code>map[K]V</code></td>
+<td>简洁直接</td>
+</tr>
+<tr>
+<td>多 goroutine 读写同一集合</td>
+<td>普通 map + <code>Mutex</code> 或 <code>RWMutex</code></td>
+<td>锁覆盖所有相关复合操作</td>
+</tr>
+<tr>
+<td>键空间热点明显、锁已测得成为瓶颈</td>
+<td>分片 map + 多把锁</td>
+<td>快照、遍历、跨分片操作更复杂</td>
+</tr>
+<tr>
+<td>写入一次、读取很多次，或键集合分散</td>
+<td><code>sync.Map</code></td>
+<td><code>any</code> 类型；复合操作不自动原子化</td>
+</tr>
+<tr>
+<td>高度定制的并发索引结构</td>
+<td>评估专用库或自定义结构</td>
+<td>先明确语义与基准，不要重造并发原语</td>
+</tr>
+</tbody></table>
+<h2 id="8-小结"><a href="#8-小结" class="headerlink" title="8. 小结"></a>8. 小结</h2><p>Go 的 Map 使用体验很轻量，但并发安全不是内建 Map 自动提供的性质。普通 map 的共享访问要么由所有者 goroutine 串行化，要么由锁等同步机制保护；<code>sync.Map</code> 是面向特定访问模式的替代容器。内建 map 从传统 bucket 结构演进到 Go 1.24 的 Swiss Table 风格实现，反映的是运行时实现持续优化，而不是语言层面的行为改变。</p>
+<p>记住两条边界：<strong>先按规范写正确，再按目标版本测性能；并发容器的实现变化，不等于应用可以省略同步设计。</strong></p>
+<h2 id="9-参考资料"><a href="#9-参考资料" class="headerlink" title="9. 参考资料"></a>9. 参考资料</h2><ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Map_types" >The Go Programming Language Specification：Map types<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Index_expressions" >Index expressions<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#For_range" >For statements with range clause<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/blog/maps" >Go maps in action<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/doc/faq#atomic_maps" >Go FAQ：Why are map operations not defined to be atomic?<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/doc/go1.9#sync-map" >Go 1.9 Release Notes：Concurrent Map<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/doc/go1.24#runtime" >Go 1.24 Release Notes：Runtime、sync.Map<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/map_noswiss.go" >Go 1.25.12 的传统 map 实现（实验 noswissmap）<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/internal/runtime/maps/map.go" >Go 1.25.12 的 Swiss Table map 实现<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/sync/map.go" >Go 1.25.12 的 sync.Map 实现<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/sync/hashtriemap.go" >实验 Hash Trie 实现<i class="fas fa-external-link-alt"></i></a></li>
+</ul>
+
+          
+        </div>
+
+        
+
+        <div class="post-bottom-tags-and-share border-box">
+          <div>
+            
+              <ul class="post-tags-box border-box">
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/Go/">Go</a>
+                  </li>
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/%E5%B9%B6%E5%8F%91/">并发</a>
+                  </li>
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/Map/">Map</a>
+                  </li>
+                
+              </ul>
+            
+          </div>
+          <div>
+            
+          </div>
+        </div>
+
+        
+
+        
+          <div class="post-nav border-box">
+            
+            
+              <div class="next-post">
+                <a class="next"
+                  rel="next"
+                  href="/2022/12/10/go-channel/"
+                  title="Go 的数据结构 Channel"
+                >
+                  <span class="title flex-center">
+                    <span class="post-nav-title-item text-ellipsis">Go 的数据结构 Channel</span>
+                    <span class="post-nav-item">下一篇</span>
+                  </span>
+                  <span class="right arrow-icon flex-center">
+                    <i class="fas fa-chevron-right"></i>
+                  </span>
+                </a>
+              </div>
+            
+          </div>
+        
+
+        
+          
+
+
+
+
+
+
+        
+      </div>
+    </div>
+
+    
+      <div class="pc-post-toc right-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Map-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">1. Map 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E9%94%AE%E7%B1%BB%E5%9E%8B%E3%80%81nil-%E4%B8%8E%E9%9B%B6%E5%80%BC"><span class="nav-number">2.</span> <span class="nav-text">2. 键类型、nil 与零值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E6%9B%B4%E6%96%B0%E5%80%BC%E4%B8%8E%E9%81%8D%E5%8E%86%E8%AF%AD%E4%B9%89"><span class="nav-number">3.</span> <span class="nav-text">3. 更新值与遍历语义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%B9%B6%E5%8F%91%E8%AF%BB%E5%86%99%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%90%8C%E6%AD%A5"><span class="nav-number">4.</span> <span class="nav-text">4. 并发读写为什么需要同步</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-Mutex%EF%BC%9A%E6%9C%80%E5%B8%B8%E8%A7%81%E3%80%81%E6%9C%80%E6%98%8E%E7%A1%AE"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 Mutex：最常见、最明确</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E5%88%86%E7%89%87%E9%94%81%EF%BC%9A%E6%8F%90%E9%AB%98%E4%B8%8D%E5%90%8C%E9%94%AE%E4%B9%8B%E9%97%B4%E7%9A%84%E5%B9%B6%E8%A1%8C%E5%BA%A6"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 分片锁：提高不同键之间的并行度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-sync-Map%EF%BC%9A%E4%B8%93%E7%94%A8%E5%B9%B6%E5%8F%91-Map"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 sync.Map：专用并发 Map</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Map-%E5%AE%9E%E7%8E%B0%E7%9A%84%E5%8E%86%E5%8F%B2%E6%BC%94%E8%BF%9B"><span class="nav-number">5.</span> <span class="nav-text">5. Map 实现的历史演进</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E4%BC%A0%E7%BB%9F-bucket-%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.1.</span> <span class="nav-text">5.1 传统 bucket 实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-Go-1-24%EF%BC%9ASwiss-Table-%E9%A3%8E%E6%A0%BC%E7%9A%84%E5%86%85%E5%BB%BA-map"><span class="nav-number">5.2.</span> <span class="nav-text">5.2 Go 1.24：Swiss Table 风格的内建 map</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-sync-Map-%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B9%9F%E5%9C%A8%E6%BC%94%E8%BF%9B"><span class="nav-number">6.</span> <span class="nav-text">6. sync.Map 的实现也在演进</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9"><span class="nav-number">7.</span> <span class="nav-text">7. 如何选择</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%B0%8F%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">8. 小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">9.</span> <span class="nav-text">9. 参考资料</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+
+        
+      </div>
+    </div>
+
+    <div class="page-main-content-bottom border-box">
+      
+<footer class="footer border-box">
+  <div class="copyright-info info-item">
+  &copy;&nbsp;<span>2013</span>&nbsp;-&nbsp;2026
+  
+      &nbsp;<i class="fas fa-heart icon-animate"></i>&nbsp;&nbsp;<a href="/">Jensen</a>
+    
+  </div>
+
+  <div class="theme-info info-item">
+    由&nbsp;<a target="_blank" href="https://hexo.io">Hexo</a>&nbsp;驱动&nbsp;&&nbsp;主题&nbsp;<a class="keep-version" target="_blank" href="https://github.com/XPoet/hexo-theme-keep">Keep</a>
+  </div>
+
+  
+
+  
+
+  
+</footer>
+
+    </div>
+  </div>
+
+  <!-- post tools -->
+  
+    <div class="post-tools right-toc">
+      <div class="post-tools-container border-box">
+  <ul class="post-tools-list border-box">
+    <!-- PC encrypt again -->
+    
+
+    <!-- PC TOC show toggle -->
+    
+      <li class="tools-item flex-center toggle-show-toc">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    <!-- PC go comment -->
+    
+
+    <!-- PC full screen -->
+    <li class="tools-item flex-center full-screen">
+      <i class="fa-solid fa-expand"></i>
+    </li>
+  </ul>
+</div>
+
+    </div>
+  
+
+  <!-- side tools -->
+  <div class="side-tools">
+    <div class="side-tools-container border-box ">
+  <ul class="side-tools-list side-tools-show-handle border-box">
+    <li class="tools-item tool-font-adjust-plus flex-center">
+      <i class="fas fa-search-plus"></i>
+    </li>
+
+    <li class="tools-item tool-font-adjust-minus flex-center">
+      <i class="fas fa-search-minus"></i>
+    </li>
+
+    <!-- toggle chinese -->
+    
+      <li class="tools-item tool-toggle-chinese flex-center">
+        <button type="button"
+            data-native-script="cn"
+            data-opencc-src="/js/libs/opencc.full.js"
+            data-label-cn="切换为简体中文"
+            data-label-tw="切换为繁体中文"
+            data-label-error="简繁转换加载失败，点击重试"
+        >
+          繁
+        </button>
+      </li>
+    
+
+    <!-- toggle mode -->
+    
+      <li class="tools-item tool-toggle-theme-mode flex-center">
+        <i class="fas fa-moon"></i>
+      </li>
+    
+
+    <!-- rss -->
+    
+
+    <!-- to bottom -->
+    <li class="tools-item tool-scroll-to-bottom flex-center">
+      <i class="fas fa-arrow-down"></i>
+    </li>
+  </ul>
+
+  <ul class="exposed-tools-list border-box">
+    
+      <li class="tools-item toggle-show-toc-tablet flex-center">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    
+
+    <li class="tools-item tool-toggle-show flex-center">
+      <i class="fas fa-cog fa-spin"></i>
+    </li>
+
+    <li class="tools-item tool-scroll-to-top flex-center show-arrow">
+      <i class="arrow fas fa-arrow-up"></i>
+      <span class="percent"></span>
+    </li>
+  </ul>
+</div>
+
+  </div>
+
+  <!-- image mask -->
+  <div class="zoom-in-image-mask">
+  <img class="zoom-in-image">
+</div>
+
+
+  <!-- local search -->
+  
+    <div class="search-pop-overlay">
+  <div class="popup search-popup">
+    <div class="search-header">
+      <span class="search-input-field-pre">
+      <i class="fas fa-keyboard"></i>
+      </span>
+      <div class="search-input-container">
+        <input autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            placeholder="搜索..."
+            spellcheck="false"
+            type="search"
+            class="search-input"
+        >
+      </div>
+      <span class="close-popup-btn">
+        <i class="fas fa-times"></i>
+      </span>
+    </div>
+    <div id="search-result">
+      <div id="no-result">
+        <i class="fas fa-spinner fa-pulse fa-5x fa-fw"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+  
+
+  <!-- tablet toc -->
+  
+    <div class="tablet-post-toc-mask">
+      <div class="tablet-post-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Map-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">1. Map 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E9%94%AE%E7%B1%BB%E5%9E%8B%E3%80%81nil-%E4%B8%8E%E9%9B%B6%E5%80%BC"><span class="nav-number">2.</span> <span class="nav-text">2. 键类型、nil 与零值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E6%9B%B4%E6%96%B0%E5%80%BC%E4%B8%8E%E9%81%8D%E5%8E%86%E8%AF%AD%E4%B9%89"><span class="nav-number">3.</span> <span class="nav-text">3. 更新值与遍历语义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%B9%B6%E5%8F%91%E8%AF%BB%E5%86%99%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%90%8C%E6%AD%A5"><span class="nav-number">4.</span> <span class="nav-text">4. 并发读写为什么需要同步</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-Mutex%EF%BC%9A%E6%9C%80%E5%B8%B8%E8%A7%81%E3%80%81%E6%9C%80%E6%98%8E%E7%A1%AE"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 Mutex：最常见、最明确</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E5%88%86%E7%89%87%E9%94%81%EF%BC%9A%E6%8F%90%E9%AB%98%E4%B8%8D%E5%90%8C%E9%94%AE%E4%B9%8B%E9%97%B4%E7%9A%84%E5%B9%B6%E8%A1%8C%E5%BA%A6"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 分片锁：提高不同键之间的并行度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-sync-Map%EF%BC%9A%E4%B8%93%E7%94%A8%E5%B9%B6%E5%8F%91-Map"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 sync.Map：专用并发 Map</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Map-%E5%AE%9E%E7%8E%B0%E7%9A%84%E5%8E%86%E5%8F%B2%E6%BC%94%E8%BF%9B"><span class="nav-number">5.</span> <span class="nav-text">5. Map 实现的历史演进</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E4%BC%A0%E7%BB%9F-bucket-%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.1.</span> <span class="nav-text">5.1 传统 bucket 实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-Go-1-24%EF%BC%9ASwiss-Table-%E9%A3%8E%E6%A0%BC%E7%9A%84%E5%86%85%E5%BB%BA-map"><span class="nav-number">5.2.</span> <span class="nav-text">5.2 Go 1.24：Swiss Table 风格的内建 map</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-sync-Map-%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B9%9F%E5%9C%A8%E6%BC%94%E8%BF%9B"><span class="nav-number">6.</span> <span class="nav-text">6. sync.Map 的实现也在演进</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9"><span class="nav-number">7.</span> <span class="nav-text">7. 如何选择</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%B0%8F%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">8. 小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">9.</span> <span class="nav-text">9. 参考资料</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    </div>
+  
+</main>
+
+
+
+
+
+<!-- common js -->
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/header-shrink.js"></script>
+
+<script src="/js/back2top.js"></script>
+
+<script src="/js/toggle-theme.js"></script>
+
+<script src="/js/chinese-convert.js"></script>
+
+<script src="/js/code-block.js"></script>
+
+<script src="/js/main.js"></script>
+
+<script src="/js/libs/anime.min.js"></script>
+
+
+<!-- local search -->
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+<!-- lazyload -->
+
+
+<div class="">
+  <!-- home page -->
+  
+
+  <!-- post page -->
+  
+    <!-- post-helper -->
+    
+<script src="/js/post/post-helper.js"></script>
+
+
+    <!-- toc -->
+    
+      
+<script src="/js/post/toc.js"></script>
+
+    
+
+    <!-- copyright-info -->
+    
+
+    <!-- share -->
+    
+  
+
+  <!-- categories page -->
+  
+
+  <!-- links page -->
+  
+
+  <!-- photos page -->
+  
+
+  <!-- tools page -->
+  
+</div>
+
+<!-- mermaid -->
+
+
+<!-- pjax -->
+
+
+
+</body>
+</html>

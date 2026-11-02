@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="keywords" content="Hexo Theme Keep">
+  <meta name="description" content="Sharing thoughts and experiences about technology, programming, and life">
+  <meta name="author" content="Jensen">
+  
+  <title>
+    
+      Go 的数据结构 Channel |
+    
+    Xing&#39;s Blog
+  </title>
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    <link rel="shortcut icon" href="/favicon.svg">
+  
+  
+<link rel="stylesheet" href="/font/css/fontawesome.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/regular.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/solid.min.css">
+
+  
+<link rel="stylesheet" href="/font/css/brands.min.css">
+
+  
+  <script>
+    (function () {
+      let theme = localStorage.getItem('KEEP-THEME-STATUS');
+      let classname = "";
+      if (!theme || (JSON.parse(theme).isAutoTheme)){
+        classname = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? "dark-mode" : "light-mode";
+      }
+      else{
+        classname = JSON.parse(theme).isDark ? "dark-mode" : "light-mode";
+      }
+      document.documentElement.classList.add(classname);
+    })();
+  </script>
+  <script class="keep-theme-configurations">
+    const KEEP = window.KEEP || {}
+    KEEP.hexo_config = {"hostname":"winlee.github.io","root":"/","language":"zh-CN"}
+    KEEP.theme_config = {"base_info":{"primary_color":"#b84c4b","title":"Xing's Blog","author":"Jensen","avatar":null,"logo":"/favicon.svg","favicon":"/favicon.svg"},"menu":{"home":"/","archives":"/archives","categories":"/categories","tags":"/tags","about":"/about"},"first_screen":{"enable":true,"background_img":"/images/bg.svg","background_img_dark":"/images/bg.svg","description":"Go 后端、AI Agent 与工程实践","hitokoto":false},"social_contact":{"enable":true,"links":{"github":"https://github.com/winlee","weixin":null,"qq":null,"weibo":null,"zhihu":null,"twitter":null,"x":null,"facebook":null,"email":null}},"scroll":{"progress_bar":true,"percent":false,"hide_header":false},"home":{"announcement":null,"category":true,"tag":true,"post_datetime":"created"},"post":{"author_badge":{"enable":false,"level_badge":true,"custom_badge":["One","Two","Three"]},"word_count":{"word":false,"min2read":true},"datetime_format":"YYYY-MM-DD","copyright_info":false,"share":false,"reward":{"enable":false,"img_link":null,"text":null,"icon":null}},"code_block":{"tools":{"enable":true,"style":"default"},"highlight_theme":"default"},"toc":{"enable":true,"number":true,"expand_all":true,"init_open":true,"layout":"right"},"website_count":{"busuanzi_count":{"enable":false,"site_uv":false,"site_pv":false,"page_pv":false}},"local_search":{"enable":true,"preload":false},"comment":{"enable":false,"use":"valine","valine":{"appid":null,"appkey":null,"server_urls":null,"placeholder":null},"gitalk":{"github_id":null,"github_admins":null,"repository":null,"client_id":null,"client_secret":null,"proxy":null},"twikoo":{"env_id":null,"region":null,"version":"2.0.8"},"waline":{"server_url":null,"reaction":false,"version":"3.15.2"},"giscus":{"repo":null,"repo_id":null,"category":"Announcements","category_id":null,"reactions_enabled":false},"artalk":{"server":null},"disqus":{"shortname":null}},"rss":{"enable":false},"lazyload":{"enable":false},"cdn":{"enable":false,"provider":"cdnjs","custom":{"enable":false,"url":null}},"pjax":{"enable":false},"footer":{"since":2013,"word_count":false,"site_deploy":{"enable":false,"provider":"github","url":null},"record":{"enable":false,"list":[{"code":null,"link":null}]}},"inject":{"enable":false,"css":[null],"js":[null]},"root":"","search_db_path":"keep-search.json","source_data":{},"version":"4.4.0"}
+    KEEP.language_ago = {"second":"%s 秒前","minute":"%s 分钟前","hour":"%s 小时前","day":"%s 天前","week":"%s 周前","month":"%s 个月前","year":"%s 年前"}
+    KEEP.language_code_block = {"copy":"复制代码","copied":"已复制","fold":"折叠代码块","folded":"已折叠"}
+    KEEP.language_copy_copyright = {"copy":"复制版权信息","copied":"已复制","title":"原文标题","author":"原文作者","link":"原文链接"}
+  </script>
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+<div class="progress-bar-container">
+  
+    <span class="scroll-progress-bar"></span>
+  
+
+  
+</div>
+
+
+
+<main class="page-container border-box">
+  <!-- home first screen  -->
+  
+
+  <!-- page content -->
+  <div class="page-main-content border-box">
+    <div class="page-main-content-top">
+      
+<header class="header-wrapper">
+
+  <div class="border-box header-content">
+    <div class="left flex-start border-box">
+      
+        <a class="logo-image border-box" href="/">
+          <img src="/favicon.svg">
+        </a>
+      
+      <a class="site-name border-box" href="/">
+        Xing&#39;s Blog
+      </a>
+    </div>
+
+    <div class="right border-box">
+      <div class="pc border-box">
+        <ul class="menu-list border-box">
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/">
+                
+                首页
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/archives">
+                
+                归档
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/categories">
+                
+                分类
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/tags">
+                
+                标签
+                
+              </a>
+              
+            </li>
+          
+            
+            <li class="menu-item flex-start border-box">
+              <a class="menu-text-color border-box" href="/about">
+                
+                关于
+                
+              </a>
+              
+            </li>
+          
+          
+            <li class="menu-item search search-popup-trigger">
+              <i class="menu-text-color fas search fa-search"></i>
+            </li>
+          
+        </ul>
+      </div>
+      <div class="mobile border-box flex-start">
+        
+          <div class="icon-item search search-popup-trigger"><i class="fas fa-search"></i></div>
+        
+        <div class="icon-item menu-bar">
+          <div class="menu-bar-middle"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-drawer">
+    <ul class="drawer-menu-list border-box">
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/">
+              
+              首页
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/archives">
+              
+              归档
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/categories">
+              
+              分类
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/tags">
+              
+              标签
+            </a>
+            
+          </label>
+          
+        </li>
+      
+        
+        <li class="drawer-menu-item border-box not-sub-menu">
+          <label class="drawer-menu-label border-box">
+            <a class="drawer-menu-text-color left-side flex-start border-box" href="/about">
+              
+              关于
+            </a>
+            
+          </label>
+          
+        </li>
+      
+    </ul>
+  </div>
+
+  <div class="window-mask"></div>
+
+</header>
+
+
+    </div>
+
+    <div class="page-main-content-middle border-box">
+
+      <div class="main-content border-box">
+        
+
+          
+<div class="fade-in-down-animation">
+  <div class="post-page-container border-box">
+    <div class="post-content-container border-box">
+      
+
+      <div class="post-content-bottom border-box">
+        
+          <div class="post-title">
+            Go 的数据结构 Channel
+          </div>
+        
+
+        
+          <div class="post-header border-box">
+            
+            <div class="info-box">
+              <div class="author border-box">
+                <span class="name">Jensen</span>
+                
+              </div>
+              <div class="meta-info border-box">
+                
+
+<div class="post-meta-info-container border-box post">
+  <div class="post-meta-info border-box">
+    
+
+    
+      <span class="meta-info-item post-create-date">
+        <i class="icon fa-solid fa-calendar-plus"></i>&nbsp;
+        <span class="datetime">2022-12-10</span>
+      </span>
+
+      
+    
+
+    
+      <span class="meta-info-item post-category border-box"><i class="icon fas fa-folder"></i>&nbsp;
+        <ul class="post-category-ul">
+          
+              <li class="category-item"><a href="/categories/go/">go</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+      <span class="post-tag meta-info-item border-box">
+        <ul class="post-tag-ul">
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Go/">Go</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/Channel/">Channel</a></li>
+            
+          
+              <li class="tag-item"><span class="tag-separator"><i class="icon fas fa-hashtag"></i></span><a href="/tags/%E5%B9%B6%E5%8F%91/">并发</a></li>
+            
+          
+        </ul>
+      </span>
+    
+
+    
+    
+      <span class="meta-info-item post-word-count">
+        <i class="icon fas fa-file-word"></i>&nbsp;<span>2.2k 字</span>
+      </span>
+    
+    
+      <span class="meta-info-item post-min2read">
+        <i class="icon fas fa-clock"></i>&nbsp;<span>8 分钟</span>
+      </span>
+    
+    
+  </div>
+
+  
+</div>
+
+              </div>
+            </div>
+          </div>
+        
+
+        <div class="post-content keep-markdown-body ">
+          
+
+          
+            <blockquote>
+<p>本文按 Go 语言规范解释 Channel 的可观察行为，并结合 Go 1.25.12 的运行时源码说明一种实现方式。运行时布局属于实现细节，不应作为应用程序依赖的 API。</p>
+</blockquote>
+<h2 id="1-Channel-是什么"><a href="#1-Channel-是什么" class="headerlink" title="1. Channel 是什么"></a>1. Channel 是什么</h2><p>Channel 是 Go 内建的并发通信机制：它让一个 goroutine 发送指定类型的值，另一个 goroutine 接收值。声明时可以使用双向或单向类型：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> ch <span class="keyword">chan</span> <span class="type">int</span>       <span class="comment">// 双向</span></span><br><span class="line"><span class="keyword">var</span> send <span class="keyword">chan</span>&lt;- <span class="type">int</span>   <span class="comment">// 只发送</span></span><br><span class="line"><span class="keyword">var</span> recv &lt;-<span class="keyword">chan</span> <span class="type">int</span>   <span class="comment">// 只接收</span></span><br></pre></td></tr></table></figure>
+
+<p>通常通过 <code>make</code> 创建可用的 Channel：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">jobs := <span class="built_in">make</span>(<span class="keyword">chan</span> Job)       <span class="comment">// 无缓冲</span></span><br><span class="line">results := <span class="built_in">make</span>(<span class="keyword">chan</span> Result, <span class="number">8</span>) <span class="comment">// 缓冲容量为 8</span></span><br></pre></td></tr></table></figure>
+
+<p>Channel 值像 map 和 slice 一样引用运行时的数据结构。复制 Channel 变量只是复制引用；多个 goroutine 使用同一个 Channel，不会因此得到多个独立队列。</p>
+<h2 id="2-无缓冲与有缓冲"><a href="#2-无缓冲与有缓冲" class="headerlink" title="2. 无缓冲与有缓冲"></a>2. 无缓冲与有缓冲</h2><p>无缓冲 Channel 没有可暂存的元素。发送和接收必须在时间上相遇：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">string</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    ch &lt;- <span class="string">&quot;ready&quot;</span> <span class="comment">// 等待接收方</span></span><br><span class="line">&#125;()</span><br><span class="line"></span><br><span class="line">message := &lt;-ch <span class="comment">// 与发送配对后完成</span></span><br></pre></td></tr></table></figure>
+
+<p>无缓冲通信除了传值，也形成同步点。发送操作与对应接收操作具有 happens-before 关系，因此接收方可以看到发送前完成的写入。它不是“某个 goroutine 先执行到哪一行”的保证，而是语言内存模型定义的同步关系。</p>
+<p>有缓冲 Channel 允许在缓冲区有空位时先发送，接收方在缓冲区非空时即可读取：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">queue := <span class="built_in">make</span>(<span class="keyword">chan</span> Job, <span class="number">2</span>)</span><br><span class="line">queue &lt;- job1</span><br><span class="line">queue &lt;- job2</span><br><span class="line"><span class="comment">// 此时缓冲已满；继续发送会阻塞，直到有接收腾出空间。</span></span><br></pre></td></tr></table></figure>
+
+<p>容量是背压边界，不是提高吞吐的万能开关。容量太大可能把内存消耗和积压延迟隐藏起来；容量太小则可能频繁阻塞。选择容量时应结合生产速度、消费速度、可接受排队量和任务对象大小。</p>
+<h2 id="3-发送、接收与阻塞"><a href="#3-发送、接收与阻塞" class="headerlink" title="3. 发送、接收与阻塞"></a>3. 发送、接收与阻塞</h2><p>一般情况下，发送表达式与发送值先求值，然后 Channel 通信才开始：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">ch &lt;- buildMessage()</span><br></pre></td></tr></table></figure>
+
+<p>发送会等待直到操作可以完成。无缓冲 Channel 需要接收方准备好；有缓冲 Channel 需要存在空位。对 nil Channel 发送会永久阻塞；对已关闭 Channel 发送会 panic。</p>
+<p>接收表达式在没有可接收值时等待。双返回值形式用于判断关闭状态：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">value, ok := &lt;-ch</span><br><span class="line"><span class="keyword">if</span> !ok &#123;</span><br><span class="line">    <span class="comment">// Channel 已关闭且缓存值已全部读完</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关闭并不会丢弃缓冲区内已发送的值。接收方先读完这些值，之后才会立即得到元素类型的零值，并且 <code>ok == false</code>。若零值本身有业务含义，例如 <code>0</code>、空字符串或 nil 指针，应使用 <code>ok</code> 区分“真正发送的零值”和“关闭后的零值”。</p>
+<p>也可以使用 <code>for range</code> 持续接收，直到 Channel 关闭且缓冲数据耗尽：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span> job := <span class="keyword">range</span> jobs &#123;</span><br><span class="line">    process(job)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="4-关闭规则与所有权"><a href="#4-关闭规则与所有权" class="headerlink" title="4. 关闭规则与所有权"></a>4. 关闭规则与所有权</h2><p><code>close(ch)</code> 表示发送方不再产生新值，它不是“销毁 Channel”，也不是取消接收方正在执行的工作。关闭操作有明确约束：</p>
+<ul>
+<li>关闭 nil Channel 会 panic。</li>
+<li>重复关闭会 panic。</li>
+<li>向已关闭 Channel 发送会 panic。</li>
+<li>从已关闭 Channel 接收是合法的，缓存被读完后返回零值和 <code>ok == false</code>。</li>
+<li>只有发送方向的代码通常应拥有关闭权限；只接收方不应负责关闭。</li>
+</ul>
+<p>多生产者场景尤其要明确谁负责最终关闭：必须确保所有发送方都已停止发送，再由唯一的协调者关闭 Channel。对“发送后再检查是否关闭”的写法很容易产生竞态；需要退出传播时，通常使用 <code>context.Context</code>、额外的 done Channel 或显式协调机制，而不是让多个发送方争抢关闭。</p>
+<h2 id="5-select：等待多个通信事件"><a href="#5-select：等待多个通信事件" class="headerlink" title="5. select：等待多个通信事件"></a>5. select：等待多个通信事件</h2><p><code>select</code> 同时等待多个发送或接收操作：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> &#123;</span><br><span class="line"><span class="keyword">case</span> result := &lt;-results:</span><br><span class="line">    handle(result)</span><br><span class="line"><span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">    <span class="keyword">return</span> ctx.Err()</span><br><span class="line"><span class="keyword">case</span> &lt;-time.After(time.Second):</span><br><span class="line">    <span class="keyword">return</span> errors.New(<span class="string">&quot;timeout&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>若多个通信都已就绪，规范规定从可执行分支中伪随机选择一个；不要把 <code>select</code> 当作严格优先级队列。<code>default</code> 会使 select 不等待，可用于非阻塞尝试，但忙循环中的 <code>default</code> 也可能白白消耗 CPU。</p>
+<p>nil Channel 永远不能通信，因此可以在循环中将已结束的输入 Channel 设为 nil，让相应分支暂时退出可选集合：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span> left != <span class="literal">nil</span> || right != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">select</span> &#123;</span><br><span class="line">    <span class="keyword">case</span> v, ok := &lt;-left:</span><br><span class="line">        <span class="keyword">if</span> !ok &#123;</span><br><span class="line">            left = <span class="literal">nil</span></span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        &#125;</span><br><span class="line">        consume(v)</span><br><span class="line">    <span class="keyword">case</span> v, ok := &lt;-right:</span><br><span class="line">        <span class="keyword">if</span> !ok &#123;</span><br><span class="line">            right = <span class="literal">nil</span></span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        &#125;</span><br><span class="line">        consume(v)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意 select 分支中的 Channel 表达式和发送值会在进入 select 时求值；它们可能产生副作用，即使最终选择的是另一个分支也一样。</p>
+<h2 id="6-运行时如何实现-Channel"><a href="#6-运行时如何实现-Channel" class="headerlink" title="6. 运行时如何实现 Channel"></a>6. 运行时如何实现 Channel</h2><p>下面只讨论 Go 1.25.12 的一种实现。<code>runtime/chan.go</code> 中，Channel 运行时对象 <code>hchan</code> 大致包含：</p>
+<ul>
+<li><code>qcount</code>、<code>dataqsiz</code>：当前排队元素数与缓冲容量；</li>
+<li><code>buf</code>、<code>sendx</code>、<code>recvx</code>：环形缓冲区及发送、接收位置；</li>
+<li><code>sendq</code>、<code>recvq</code>：等待发送和等待接收的 goroutine 队列；</li>
+<li><code>closed</code>：关闭状态；</li>
+<li><code>lock</code>：保护状态转换和等待队列的互斥锁。</li>
+</ul>
+<p>发送操作在持锁后，会先看是否有等待中的接收者。若有，运行时可以把值直接交给接收者，不必先经过缓冲区；否则若缓冲区有空位，则写入环形缓冲区；若两种条件都不满足，当前 goroutine 会进入发送等待队列并 park。接收路径同理：匹配等待发送者、从缓冲区读取，或者将自身挂入接收队列等待。</p>
+<p>这里的 park 不是把操作系统线程永久阻塞，而是让 goroutine 暂停，运行时可调度其他 goroutine。Channel 代码还要处理垃圾回收、栈移动、竞态检测、select 同时等待多个 Channel 等复杂情况。因此，源码结构可帮助理解阻塞和唤醒，但业务代码不应依赖 <code>hchan</code> 或假设某种实现一定保持不变。</p>
+<h2 id="7-Channel-常见设计"><a href="#7-Channel-常见设计" class="headerlink" title="7. Channel 常见设计"></a>7. Channel 常见设计</h2><h3 id="7-1-Worker-Pool"><a href="#7-1-Worker-Pool" class="headerlink" title="7.1 Worker Pool"></a>7.1 Worker Pool</h3><p>一个有界任务 Channel 可以限制待处理任务数量，从而将压力传回生产者：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">worker</span><span class="params">(ctx context.Context, jobs &lt;-<span class="keyword">chan</span> Job, results <span class="keyword">chan</span>&lt;- Result)</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        <span class="keyword">case</span> job, ok := &lt;-jobs:</span><br><span class="line">            <span class="keyword">if</span> !ok &#123;</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">            &#125;</span><br><span class="line">            result := process(job)</span><br><span class="line">            <span class="keyword">select</span> &#123;</span><br><span class="line">            <span class="keyword">case</span> results &lt;- result:</span><br><span class="line">            <span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>要进一步保证系统可退出，还需要由上层协调取消、停止生产、关闭任务 Channel、等待 worker 结束，并确保结果 Channel 的关闭者不会与仍在发送的 worker 竞争。</p>
+<h3 id="7-2-Pipeline-与错误传播"><a href="#7-2-Pipeline-与错误传播" class="headerlink" title="7.2 Pipeline 与错误传播"></a>7.2 Pipeline 与错误传播</h3><p>流水线中的每个阶段通常从输入接收、处理后向输出发送。阶段必须定义清楚：谁关闭输出、消费者提前退出时上游如何停止、错误如何传回调用方。仅仅创建 Channel 并启动 goroutine，不会自动解决 goroutine 泄漏；如果下游提前返回，上游可能一直阻塞在发送上。将 <code>context.Context</code> 纳入发送和接收的 select 通常是实用的取消路径。</p>
+<h2 id="8-常见误区"><a href="#8-常见误区" class="headerlink" title="8. 常见误区"></a>8. 常见误区</h2><ol>
+<li><strong>把缓冲区当作同步保障。</strong> 有缓冲 Channel 的发送可能早于接收发生；若需要明确的阶段同步，考虑无缓冲 Channel 或其他同步原语。</li>
+<li><strong>忘记关闭。</strong> <code>for range ch</code> 会一直等待，除非 Channel 被关闭或接收方被其他机制取消。</li>
+<li><strong>从多个 goroutine 同时关闭。</strong> 关闭权应有清晰的单一所有者，必要时使用 <code>sync.Once</code> 保护关闭动作，但这仍不能替代“所有发送已经结束”的生命周期设计。</li>
+<li><strong>把 <code>len(ch)</code> 当作检查后再操作的依据。</strong> 长度只反映瞬间缓冲元素数，不是并发条件判断；检查后状态可能立即改变。</li>
+<li><strong>把 Channel 当成通用锁。</strong> Channel 适合表达值传递、所有权转移、任务队列和同步事件；对保护共享状态，<code>sync.Mutex</code> 往往更直接。</li>
+<li><strong>误解 <code>select</code> 的公平性。</strong> 多个就绪分支没有固定优先级，也不承诺业务层面的公平调度。</li>
+</ol>
+<h2 id="9-小结"><a href="#9-小结" class="headerlink" title="9. 小结"></a>9. 小结</h2><p>Channel 的核心价值不仅是“队列”，更是通过发送、接收与关闭明确表达并发协议。无缓冲通信提供同步，有缓冲通信提供有界排队和背压，单向类型帮助表达职责，<code>select</code> 和取消信号则让生命周期可被组合。理解阻塞条件、关闭所有权和退出路径，比记住运行时结构字段更重要。</p>
+<h2 id="10-参考资料"><a href="#10-参考资料" class="headerlink" title="10. 参考资料"></a>10. 参考资料</h2><ul>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Channel_types" >The Go Programming Language Specification：Channel types<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Send_statements" >Send statements<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Receive_operator" >Receive operator<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Select_statements" >Select statements<i class="fas fa-external-link-alt"></i></a>、<a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/spec#Close" >Close<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/ref/mem" >The Go Memory Model<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://github.com/golang/go/blob/go1.25.12/src/runtime/chan.go" >Go 1.25.12 runtime&#x2F;chan.go<i class="fas fa-external-link-alt"></i></a></li>
+<li><a class="link"   target="_blank" rel="noopener" href="https://go.dev/blog/pipelines" >Go blog: Go Concurrency Patterns: Pipelines and cancellation<i class="fas fa-external-link-alt"></i></a></li>
+</ul>
+
+          
+        </div>
+
+        
+
+        <div class="post-bottom-tags-and-share border-box">
+          <div>
+            
+              <ul class="post-tags-box border-box">
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/Go/">Go</a>
+                  </li>
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/Channel/">Channel</a>
+                  </li>
+                
+                  <li class="tag-item border-box">
+                    <i class="icon fas fa-hashtag"></i>&nbsp;<a href="/tags/%E5%B9%B6%E5%8F%91/">并发</a>
+                  </li>
+                
+              </ul>
+            
+          </div>
+          <div>
+            
+          </div>
+        </div>
+
+        
+
+        
+          <div class="post-nav border-box">
+            
+              <div class="prev-post">
+                <a class="prev"
+                  rel="prev"
+                  href="/2022/12/15/go-map-%E5%B9%B6%E5%8F%91%E6%94%AF%E6%8C%81%E6%BC%94%E8%BF%9B/"
+                  title="Go 的数据结构 Map 以及并发支持演进"
+                >
+                  <span class="left arrow-icon flex-center">
+                    <i class="fas fa-chevron-left"></i>
+                  </span>
+                  <span class="title flex-center">
+                    <span class="post-nav-title-item text-ellipsis">Go 的数据结构 Map 以及并发支持演进</span>
+                    <span class="post-nav-item">上一篇</span>
+                  </span>
+                </a>
+              </div>
+            
+            
+              <div class="next-post">
+                <a class="next"
+                  rel="next"
+                  href="/2022/11/06/go-graceful-shutdown/"
+                  title="Go 的优雅退出实现与探讨"
+                >
+                  <span class="title flex-center">
+                    <span class="post-nav-title-item text-ellipsis">Go 的优雅退出实现与探讨</span>
+                    <span class="post-nav-item">下一篇</span>
+                  </span>
+                  <span class="right arrow-icon flex-center">
+                    <i class="fas fa-chevron-right"></i>
+                  </span>
+                </a>
+              </div>
+            
+          </div>
+        
+
+        
+          
+
+
+
+
+
+
+        
+      </div>
+    </div>
+
+    
+      <div class="pc-post-toc right-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Channel-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">1. Channel 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E6%97%A0%E7%BC%93%E5%86%B2%E4%B8%8E%E6%9C%89%E7%BC%93%E5%86%B2"><span class="nav-number">2.</span> <span class="nav-text">2. 无缓冲与有缓冲</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%8F%91%E9%80%81%E3%80%81%E6%8E%A5%E6%94%B6%E4%B8%8E%E9%98%BB%E5%A1%9E"><span class="nav-number">3.</span> <span class="nav-text">3. 发送、接收与阻塞</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%85%B3%E9%97%AD%E8%A7%84%E5%88%99%E4%B8%8E%E6%89%80%E6%9C%89%E6%9D%83"><span class="nav-number">4.</span> <span class="nav-text">4. 关闭规则与所有权</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-select%EF%BC%9A%E7%AD%89%E5%BE%85%E5%A4%9A%E4%B8%AA%E9%80%9A%E4%BF%A1%E4%BA%8B%E4%BB%B6"><span class="nav-number">5.</span> <span class="nav-text">5. select：等待多个通信事件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E8%BF%90%E8%A1%8C%E6%97%B6%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0-Channel"><span class="nav-number">6.</span> <span class="nav-text">6. 运行时如何实现 Channel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Channel-%E5%B8%B8%E8%A7%81%E8%AE%BE%E8%AE%A1"><span class="nav-number">7.</span> <span class="nav-text">7. Channel 常见设计</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-Worker-Pool"><span class="nav-number">7.1.</span> <span class="nav-text">7.1 Worker Pool</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-Pipeline-%E4%B8%8E%E9%94%99%E8%AF%AF%E4%BC%A0%E6%92%AD"><span class="nav-number">7.2.</span> <span class="nav-text">7.2 Pipeline 与错误传播</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA"><span class="nav-number">8.</span> <span class="nav-text">8. 常见误区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%B0%8F%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">9. 小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">10. 参考资料</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    
+  </div>
+</div>
+
+
+        
+      </div>
+    </div>
+
+    <div class="page-main-content-bottom border-box">
+      
+<footer class="footer border-box">
+  <div class="copyright-info info-item">
+  &copy;&nbsp;<span>2013</span>&nbsp;-&nbsp;2026
+  
+      &nbsp;<i class="fas fa-heart icon-animate"></i>&nbsp;&nbsp;<a href="/">Jensen</a>
+    
+  </div>
+
+  <div class="theme-info info-item">
+    由&nbsp;<a target="_blank" href="https://hexo.io">Hexo</a>&nbsp;驱动&nbsp;&&nbsp;主题&nbsp;<a class="keep-version" target="_blank" href="https://github.com/XPoet/hexo-theme-keep">Keep</a>
+  </div>
+
+  
+
+  
+
+  
+</footer>
+
+    </div>
+  </div>
+
+  <!-- post tools -->
+  
+    <div class="post-tools right-toc">
+      <div class="post-tools-container border-box">
+  <ul class="post-tools-list border-box">
+    <!-- PC encrypt again -->
+    
+
+    <!-- PC TOC show toggle -->
+    
+      <li class="tools-item flex-center toggle-show-toc">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    <!-- PC go comment -->
+    
+
+    <!-- PC full screen -->
+    <li class="tools-item flex-center full-screen">
+      <i class="fa-solid fa-expand"></i>
+    </li>
+  </ul>
+</div>
+
+    </div>
+  
+
+  <!-- side tools -->
+  <div class="side-tools">
+    <div class="side-tools-container border-box ">
+  <ul class="side-tools-list side-tools-show-handle border-box">
+    <li class="tools-item tool-font-adjust-plus flex-center">
+      <i class="fas fa-search-plus"></i>
+    </li>
+
+    <li class="tools-item tool-font-adjust-minus flex-center">
+      <i class="fas fa-search-minus"></i>
+    </li>
+
+    <!-- toggle chinese -->
+    
+      <li class="tools-item tool-toggle-chinese flex-center">
+        <button type="button"
+            data-native-script="cn"
+            data-opencc-src="/js/libs/opencc.full.js"
+            data-label-cn="切换为简体中文"
+            data-label-tw="切换为繁体中文"
+            data-label-error="简繁转换加载失败，点击重试"
+        >
+          繁
+        </button>
+      </li>
+    
+
+    <!-- toggle mode -->
+    
+      <li class="tools-item tool-toggle-theme-mode flex-center">
+        <i class="fas fa-moon"></i>
+      </li>
+    
+
+    <!-- rss -->
+    
+
+    <!-- to bottom -->
+    <li class="tools-item tool-scroll-to-bottom flex-center">
+      <i class="fas fa-arrow-down"></i>
+    </li>
+  </ul>
+
+  <ul class="exposed-tools-list border-box">
+    
+      <li class="tools-item toggle-show-toc-tablet flex-center">
+        <i class="fas fa-list"></i>
+      </li>
+    
+
+    
+
+    <li class="tools-item tool-toggle-show flex-center">
+      <i class="fas fa-cog fa-spin"></i>
+    </li>
+
+    <li class="tools-item tool-scroll-to-top flex-center show-arrow">
+      <i class="arrow fas fa-arrow-up"></i>
+      <span class="percent"></span>
+    </li>
+  </ul>
+</div>
+
+  </div>
+
+  <!-- image mask -->
+  <div class="zoom-in-image-mask">
+  <img class="zoom-in-image">
+</div>
+
+
+  <!-- local search -->
+  
+    <div class="search-pop-overlay">
+  <div class="popup search-popup">
+    <div class="search-header">
+      <span class="search-input-field-pre">
+      <i class="fas fa-keyboard"></i>
+      </span>
+      <div class="search-input-container">
+        <input autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            placeholder="搜索..."
+            spellcheck="false"
+            type="search"
+            class="search-input"
+        >
+      </div>
+      <span class="close-popup-btn">
+        <i class="fas fa-times"></i>
+      </span>
+    </div>
+    <div id="search-result">
+      <div id="no-result">
+        <i class="fas fa-spinner fa-pulse fa-5x fa-fw"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+  
+
+  <!-- tablet toc -->
+  
+    <div class="tablet-post-toc-mask">
+      <div class="tablet-post-toc">
+        <div class="post-toc-wrap border-box">
+  <div class="post-toc border-box">
+    <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-Channel-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">1. Channel 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E6%97%A0%E7%BC%93%E5%86%B2%E4%B8%8E%E6%9C%89%E7%BC%93%E5%86%B2"><span class="nav-number">2.</span> <span class="nav-text">2. 无缓冲与有缓冲</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%8F%91%E9%80%81%E3%80%81%E6%8E%A5%E6%94%B6%E4%B8%8E%E9%98%BB%E5%A1%9E"><span class="nav-number">3.</span> <span class="nav-text">3. 发送、接收与阻塞</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%85%B3%E9%97%AD%E8%A7%84%E5%88%99%E4%B8%8E%E6%89%80%E6%9C%89%E6%9D%83"><span class="nav-number">4.</span> <span class="nav-text">4. 关闭规则与所有权</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-select%EF%BC%9A%E7%AD%89%E5%BE%85%E5%A4%9A%E4%B8%AA%E9%80%9A%E4%BF%A1%E4%BA%8B%E4%BB%B6"><span class="nav-number">5.</span> <span class="nav-text">5. select：等待多个通信事件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E8%BF%90%E8%A1%8C%E6%97%B6%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0-Channel"><span class="nav-number">6.</span> <span class="nav-text">6. 运行时如何实现 Channel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Channel-%E5%B8%B8%E8%A7%81%E8%AE%BE%E8%AE%A1"><span class="nav-number">7.</span> <span class="nav-text">7. Channel 常见设计</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-Worker-Pool"><span class="nav-number">7.1.</span> <span class="nav-text">7.1 Worker Pool</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-Pipeline-%E4%B8%8E%E9%94%99%E8%AF%AF%E4%BC%A0%E6%92%AD"><span class="nav-number">7.2.</span> <span class="nav-text">7.2 Pipeline 与错误传播</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA"><span class="nav-number">8.</span> <span class="nav-text">8. 常见误区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%B0%8F%E7%BB%93"><span class="nav-number">9.</span> <span class="nav-text">9. 小结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">10. 参考资料</span></a></li></ol>
+  </div>
+</div>
+
+      </div>
+    </div>
+  
+</main>
+
+
+
+
+
+<!-- common js -->
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/header-shrink.js"></script>
+
+<script src="/js/back2top.js"></script>
+
+<script src="/js/toggle-theme.js"></script>
+
+<script src="/js/chinese-convert.js"></script>
+
+<script src="/js/code-block.js"></script>
+
+<script src="/js/main.js"></script>
+
+<script src="/js/libs/anime.min.js"></script>
+
+
+<!-- local search -->
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+<!-- lazyload -->
+
+
+<div class="">
+  <!-- home page -->
+  
+
+  <!-- post page -->
+  
+    <!-- post-helper -->
+    
+<script src="/js/post/post-helper.js"></script>
+
+
+    <!-- toc -->
+    
+      
+<script src="/js/post/toc.js"></script>
+
+    
+
+    <!-- copyright-info -->
+    
+
+    <!-- share -->
+    
+  
+
+  <!-- categories page -->
+  
+
+  <!-- links page -->
+  
+
+  <!-- photos page -->
+  
+
+  <!-- tools page -->
+  
+</div>
+
+<!-- mermaid -->
+
+
+<!-- pjax -->
+
+
+
+</body>
+</html>
