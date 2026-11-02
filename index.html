@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+  <title>
+    
+
+    Xing&#39;s Blog
+  </title>
+
+  
+  <link rel="shortcut icon" href="/icon.svg">
+  
+
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  
+
+  <!-- 字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+
+  
+<link rel="stylesheet" href="/css/root.css">
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/post.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <header class="header">
+  <section class="header-container">
+    <a class="logo" href="/">Xing&#39;s Blog</a>
+    <ul class="nav">
+      
+      <li><a href="/archives">archives</a></li>
+      
+      <li><a href="/about">about</a></li>
+      
+    </ul>
+  </section>
+</header>
+  <main class="main">
+    <div class="post-list">
+  
+  <section class="post-item">
+    <a class="post-item-title" href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/">秒杀学习总结</a>
+    <div class="post-item-summary">
+      架构原则：4要1不要
+数据要尽量少
+用户请求的数据能少就少，请求的数据包括上传给系统的数据和系统返回给用户的数据（通常就是网页）
+
+原因
+
+数据在网络传输上需要时间，往返都需要服务器做处理，同时写网络时需要做压缩，和字符编码，这些都非常消耗CPU，所以减少传输的数量可以显著减少CPU的使用。示例：简化秒杀页面的大小，去掉不必要的页面效果等
+数据能少就少还要求系统依赖的数据能少就少，包括系统完成某些业务逻辑需要读取和保存的数据，这些数据一般是和后台服务以及数据库打交道的，调用其
+      <a class="read-more" href="/2021/04/16/%E7%A7%92%E6%9D%80%E5%AD%A6%E4%B9%A0%E6%80%BB%E7%BB%93/"> ... </a>
+    </div>
+    <div class="post-item-extra">
+      <div class="date">2021.04.16</div>
+      <div class="tags">
+        
+      </div>
+    </div>
+  </section>
+  
+  <section class="post-item">
+    <a class="post-item-title" href="/2021/04/16/hello-world/">Hello World</a>
+    <div class="post-item-summary">
+      Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub.
+Quick StartCreate a new post$ hexo new &quot;
+      <a class="read-more" href="/2021/04/16/hello-world/"> ... </a>
+    </div>
+    <div class="post-item-extra">
+      <div class="date">2021.04.16</div>
+      <div class="tags">
+        
+      </div>
+    </div>
+  </section>
+  
+</div>
+
+
+  </main>
+  <footer class="footer">
+  
+  <span>Copyright © 2024 Li Zhengxing</span>
+  
+</footer>
+  
+<script src="/js/theme.js"></script>
+
+</body>
+
+</html>

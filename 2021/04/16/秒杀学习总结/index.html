@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+  <title>
+    
+    秒杀学习总结 丨
+    
+
+    Xing&#39;s Blog
+  </title>
+
+  
+  <link rel="shortcut icon" href="/icon.svg">
+  
+
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  
+  <link id="theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.css">
+  <script src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
+  
+
+  <!-- 字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+
+  
+<link rel="stylesheet" href="/css/root.css">
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/post.css">
+
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body>
+  <header class="header">
+  <section class="header-container">
+    <a class="logo" href="/">Xing&#39;s Blog</a>
+    <ul class="nav">
+      
+      <li><a href="/archives">archives</a></li>
+      
+      <li><a href="/about">about</a></li>
+      
+    </ul>
+  </section>
+</header>
+  <main class="main">
+    <article class="post">
+  
+  <div class="post-title">秒杀学习总结</div>
+  <div class="post-meta">
+    <div class="date">2021 四月 16日</div>
+    <div class="tags">
+      
+    </div>
+  </div>
+  
+
+  <main class="post-content"><h2 id="架构原则：4要1不要"><a href="#架构原则：4要1不要" class="headerlink" title="架构原则：4要1不要"></a>架构原则：4要1不要</h2><ol>
+<li><p><strong>数据要尽量少</strong></p>
+<p>用户请求的数据能少就少，请求的数据包括上传给系统的数据和系统返回给用户的数据（通常就是网页）</p>
+<blockquote>
+<p><strong>原因</strong></p>
+<ol>
+<li>数据在网络传输上需要时间，往返都需要服务器做处理，同时写网络时需要做压缩，和字符编码，这些都非常消耗CPU，所以减少传输的数量可以显著减少CPU的使用。示例：简化秒杀页面的大小，去掉不必要的页面效果等</li>
+<li>数据能少就少还要求系统依赖的数据能少就少，包括系统完成某些业务逻辑需要读取和保存的数据，这些数据一般是和后台服务以及数据库打交道的，调用其他服务会涉及数据的序列化和反序列化，而这也是CPU的一大杀手，同样会增加延时。而且DB本身也容易成为瓶颈，所以和DB打交道越少越好，数据越简单，越小则越好</li>
+</ol>
+</blockquote>
+</li>
+<li><p><strong>请求数据要尽量少</strong></p>
+</li>
+<li><p><strong>路径要尽量短</strong>，路径指的用户发出请求到返回数据这个过程中，需求经过的中间的节点数</p>
+</li>
+<li><p><strong>依赖要尽量少</strong>，就是指完成一次请求必须依赖的系统和服务尽量少，可以对依赖服务和系统进行分级，尽量减少不必要的依赖，极端情况可以降级部分弱依赖服务</p>
+</li>
+<li><p><strong>不要有单点</strong>，单点意味没有备份，风险不可控</p>
+<ol>
+<li>避免将服务状态和机器绑定，即把服务无状态化</li>
+<li>像DB这种很难无状态化的，一般通过冗余多个备份的方式解决单点问题</li>
+</ol>
+</li>
+</ol>
+</main>
+
+</article>
+
+
+<script src="/js/highlight.js"></script>
+
+  </main>
+  <footer class="footer">
+  
+  <span>Copyright © 2024 Li Zhengxing</span>
+  
+</footer>
+  
+<script src="/js/theme.js"></script>
+
+</body>
+
+</html>
