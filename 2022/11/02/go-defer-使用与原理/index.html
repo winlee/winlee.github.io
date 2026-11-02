@@ -329,86 +329,38 @@
           
             <p><code>defer</code> 用于登记一个延迟调用：当前函数即将返回时执行它。它常用于释放资源、解锁和处理清理逻辑。理解调用时机、执行顺序和参数求值规则，可以避免很多隐蔽问题。</p>
 <h2 id="1-defer-的介绍"><a href="#1-defer-的介绍" class="headerlink" title="1. defer 的介绍"></a>1. defer 的介绍</h2><p><code>defer</code> 后面必须是函数或方法调用。执行到 <code>defer</code> 语句时，Go 会立即求值被调用的函数以及参数，但不会立即调用它；被登记的调用会在外层函数返回前执行。</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
-    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;cleanup&quot;</span>)
-    fmt.Println(<span class="string">&quot;work&quot;</span>)
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;cleanup&quot;</span>)</span><br><span class="line">    fmt.Println(<span class="string">&quot;work&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>输出：</p>
-<pre><code class="highlight text">work
-cleanup</code></pre>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">work</span><br><span class="line">cleanup</span><br></pre></td></tr></table></figure>
 
 <p>同一函数登记多个 <code>defer</code> 时，按后进先出（LIFO）顺序执行：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
-    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;first&quot;</span>)
-    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;second&quot;</span>)
-    <span class="comment">// 返回时依次输出 second、first</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;first&quot;</span>)</span><br><span class="line">    <span class="keyword">defer</span> fmt.Println(<span class="string">&quot;second&quot;</span>)</span><br><span class="line">    <span class="comment">// 返回时依次输出 second、first</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="2-defer-的使用"><a href="#2-defer-的使用" class="headerlink" title="2. defer 的使用"></a>2. defer 的使用</h2><h3 id="释放资源"><a href="#释放资源" class="headerlink" title="释放资源"></a>释放资源</h3><p>资源获取成功后尽早登记释放逻辑，能让清理代码靠近资源创建的位置：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">readFile</span><span class="params">(path <span class="type">string</span>)</span></span> <span class="type">error</span> &#123;
-    f, err := os.Open(path)
-    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;
-        <span class="keyword">return</span> err
-    &#125;
-    <span class="keyword">defer</span> f.Close()
-
-    _, err = io.Copy(os.Stdout, f)
-    <span class="keyword">return</span> err
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">readFile</span><span class="params">(path <span class="type">string</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    f, err := os.Open(path)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">defer</span> f.Close()</span><br><span class="line"></span><br><span class="line">    _, err = io.Copy(os.Stdout, f)</span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>常见场景包括关闭文件、响应体、数据库连接或事务，以及解锁：</p>
-<pre><code class="highlight go">mu.Lock()
-<span class="keyword">defer</span> mu.Unlock()</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">mu.Lock()</span><br><span class="line"><span class="keyword">defer</span> mu.Unlock()</span><br></pre></td></tr></table></figure>
 
 <h3 id="执行函数退出逻辑"><a href="#执行函数退出逻辑" class="headerlink" title="执行函数退出逻辑"></a>执行函数退出逻辑</h3><p>可以用 <code>defer</code> 记录耗时、归还临时状态或执行统一清理。若需要访问函数最终返回值，可以使用命名返回值：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">answer</span><span class="params">()</span></span> (result <span class="type">int</span>) &#123;
-    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-        result++
-    &#125;()
-    <span class="keyword">return</span> <span class="number">41</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">answer</span><span class="params">()</span></span> (result <span class="type">int</span>) &#123;</span><br><span class="line">    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        result++</span><br><span class="line">    &#125;()</span><br><span class="line">    <span class="keyword">return</span> <span class="number">41</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><code>return 41</code> 先把 <code>41</code> 赋给 <code>result</code>，然后执行 deferred 函数，因此最终返回 <code>42</code>。</p>
 <h3 id="处理-panic"><a href="#处理-panic" class="headerlink" title="处理 panic"></a>处理 panic</h3><p>发生 panic 时，Go 会沿当前 goroutine 的调用栈展开，并执行沿途已登记的 <code>defer</code>。<code>recover</code> 通常放在 deferred 函数中，用来捕获当前 goroutine 的 panic：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">protect</span><span class="params">()</span></span> &#123;
-    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-        <span class="keyword">if</span> v := <span class="built_in">recover</span>(); v != <span class="literal">nil</span> &#123;
-            log.Printf(<span class="string">&quot;recovered: %v&quot;</span>, v)
-        &#125;
-    &#125;()
-
-    doWork()
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">protect</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">if</span> v := <span class="built_in">recover</span>(); v != <span class="literal">nil</span> &#123;</span><br><span class="line">            log.Printf(<span class="string">&quot;recovered: %v&quot;</span>, v)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    doWork()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><code>recover</code> 只能在正在展开 panic 的同一 goroutine 中，由 deferred 函数直接调用时生效；它不能捕获其他 goroutine 的 panic。</p>
 <h2 id="3-defer-的原理：从编译器到运行时"><a href="#3-defer-的原理：从编译器到运行时" class="headerlink" title="3. defer 的原理：从编译器到运行时"></a>3. defer 的原理：从编译器到运行时</h2><p>下面以 **Go 1.25.12（linux&#x2F;amd64 的通用实现思路）**为例分析源码。编译器策略会随版本、目标架构、函数结构和编译选项变化；<code>_defer</code> 等均是运行时内部实现，不属于 Go 语言规范。</p>
 <p>先看一条完整路径：</p>
-<pre><code class="highlight text">defer 语句
-   │
-   ├─ 编译器：求值函数/接收者/参数，决定 defer 实现策略
-   │
-   ├─ open-coded：保存到当前栈帧的槽位，并置位 deferBits
-   │
-   └─ linked defer：构造 _defer 记录，挂入当前 goroutine 的 defer 链
-          │
-          ├─ 正常返回：执行返回路径上的 defer 处理代码
-          └─ panic：gopanic 遍历栈帧，由 nextDefer 找到并执行待处理调用</code></pre>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">defer 语句</span><br><span class="line">   │</span><br><span class="line">   ├─ 编译器：求值函数/接收者/参数，决定 defer 实现策略</span><br><span class="line">   │</span><br><span class="line">   ├─ open-coded：保存到当前栈帧的槽位，并置位 deferBits</span><br><span class="line">   │</span><br><span class="line">   └─ linked defer：构造 _defer 记录，挂入当前 goroutine 的 defer 链</span><br><span class="line">          │</span><br><span class="line">          ├─ 正常返回：执行返回路径上的 defer 处理代码</span><br><span class="line">          └─ panic：gopanic 遍历栈帧，由 nextDefer 找到并执行待处理调用</span><br></pre></td></tr></table></figure>
 
 <h3 id="3-1-编译器先改写-defer-调用"><a href="#3-1-编译器先改写-defer-调用" class="headerlink" title="3.1 编译器先改写 defer 调用"></a>3.1 编译器先改写 defer 调用</h3><p>编译器前端把 <code>defer f(x)</code> 表示为 defer 语句节点（内部 IR 中为 <code>ODEFER</code>）。在 <code>cmd/compile/internal/walk/stmt.go</code> 中，编译器标记函数含有 defer，并统计静态 defer 数量；之后 SSA 阶段选择生成 open-coded 代码还是运行时调用。</p>
 <p>无论采用哪条路径，<strong>调用所需的数据都必须在执行 defer 语句时确定</strong>：函数值、方法接收者和实参在登记点求值。编译器把它们保存到之后可供延迟调用使用的位置；如果是闭包，保存的是闭包值及其捕获环境。</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
-    n := <span class="number">1</span>
-    <span class="keyword">defer</span> fmt.Println(n) <span class="comment">// 保存的实参是 1</span>
-    n = <span class="number">2</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;</span><br><span class="line">    n := <span class="number">1</span></span><br><span class="line">    <span class="keyword">defer</span> fmt.Println(n) <span class="comment">// 保存的实参是 1</span></span><br><span class="line">    n = <span class="number">2</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里保存的是整数 <code>1</code>，而不是 <code>n</code> 这个变量的位置。闭包则不同：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
-    n := <span class="number">1</span>
-    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; fmt.Println(n) &#125;() <span class="comment">// 闭包捕获 n</span>
-    n = <span class="number">2</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;</span><br><span class="line">    n := <span class="number">1</span></span><br><span class="line">    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; fmt.Println(n) &#125;() <span class="comment">// 闭包捕获 n</span></span><br><span class="line">    n = <span class="number">2</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>闭包执行时读取捕获的变量，因此输出 <code>2</code>。这是“实参立即求值”和“闭包延迟执行”共同造成的，不是 defer 参数求值规则的例外。</p>
 <h3 id="3-2-当前编译器的三种实现路径"><a href="#3-2-当前编译器的三种实现路径" class="headerlink" title="3.2 当前编译器的三种实现路径"></a>3.2 当前编译器的三种实现路径</h3><p>Go 1.25.12 编译器源码会把 defer 区分为 <strong>open-coded、stack-allocated、heap-allocated</strong>。这是编译器实现策略，不应理解成语言层面对每条 defer 的固定承诺。</p>
@@ -450,21 +402,13 @@ cleanup</code></pre>
 </tr>
 </tbody></table>
 <p>这条路径的登记逻辑可以概括为：</p>
-<pre><code class="highlight go">d := newdefer()
-d.link = gp._defer
-gp._defer = d
-d.fn = fn
-d.pc = callerPC
-d.sp = callerSP</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line">d := newdefer()</span><br><span class="line">d.link = gp._defer</span><br><span class="line">gp._defer = d</span><br><span class="line">d.fn = fn</span><br><span class="line">d.pc = callerPC</span><br><span class="line">d.sp = callerSP</span><br></pre></td></tr></table></figure>
 
 <p>这是对 <code>runtime.deferproc</code> 的删减示意，不是可直接使用的代码。实际源码还处理系统栈约束、栈指针有效性、pool、GC 与并发安全等细节。</p>
 <h3 id="3-3-正常返回：返回值先确定，再运行-defer"><a href="#3-3-正常返回：返回值先确定，再运行-defer" class="headerlink" title="3.3 正常返回：返回值先确定，再运行 defer"></a>3.3 正常返回：返回值先确定，再运行 defer</h3><p>对常规返回，编译器会生成相应的退出路径。open-coded defer 由该函数生成的代码直接检查位图并调用；链表式 defer 则由编译器安排的 <code>runtime.deferreturn</code> 处理。</p>
 <p><code>runtime.deferreturn</code> 创建运行时的 defer 执行上下文，反复调用 <code>nextDefer</code> 取出当前函数帧的下一条 defer 并执行。链表记录弹出后，运行时清除函数引用，避免延长闭包或其捕获对象的存活时间；堆记录之后可回收到 defer pool。</p>
 <p>对于命名返回值，编译器把 <code>return expr</code> 展开成“先写返回变量，再运行退出逻辑，最后返回”。例如：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">f</span><span class="params">()</span></span> (n <span class="type">int</span>) &#123;
-    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; n++ &#125;()
-    <span class="keyword">return</span> <span class="number">10</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">f</span><span class="params">()</span></span> (n <span class="type">int</span>) &#123;</span><br><span class="line">    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; n++ &#125;()</span><br><span class="line">    <span class="keyword">return</span> <span class="number">10</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><code>10</code> 先赋给 <code>n</code>，defer 再把 <code>n</code> 改为 <code>11</code>，最终返回 <code>11</code>。未命名返回值的返回表达式也会先计算到返回位置；但 defer 中修改某个局部变量不会反过来改写已经计算好的返回值。</p>
 <h3 id="3-4-panic-展开：运行时沿栈帧找-defer"><a href="#3-4-panic-展开：运行时沿栈帧找-defer" class="headerlink" title="3.4 panic 展开：运行时沿栈帧找 defer"></a>3.4 panic 展开：运行时沿栈帧找 defer</h3><p><code>panic</code> 进入 <code>runtime.gopanic</code> 后，运行时创建 <code>_panic</code> 状态并循环调用 <code>nextDefer</code>。每次拿到一个延迟函数就执行它：</p>
@@ -475,36 +419,21 @@ d.sp = callerSP</code></pre>
 </ol>
 <p>因此运行时需要同时理解 open-coded 元数据和链表记录：它们是两种存储形式，但最终都由 panic 展开流程按语言要求调用。defer 内再次 panic 时会进入新的 panic 展开；<code>recover</code> 能否生效则由运行时检查当前执行位置是否是正在处理的 panic 中最顶层 deferred 调用（源码通过参数区地址等信息校验）。</p>
 <h3 id="3-5-如何在本机观察编译器选择"><a href="#3-5-如何在本机观察编译器选择" class="headerlink" title="3.5 如何在本机观察编译器选择"></a>3.5 如何在本机观察编译器选择</h3><p>对当前 Go 编译器，可以用调试开关查看 defer 分类：</p>
-<pre><code class="highlight bash">go build -gcflags=<span class="string">&#x27;-d=defer=2&#x27;</span> ./...</code></pre>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">go build -gcflags=<span class="string">&#x27;-d=defer=2&#x27;</span> ./...</span><br></pre></td></tr></table></figure>
 
 <p>输出会提示某条 defer 是 <code>open-coded</code>、<code>stack-allocated</code> 还是 <code>heap-allocated</code>。也可以查看汇编：</p>
-<pre><code class="highlight bash">go build -gcflags=<span class="string">&#x27;-S&#x27;</span> -o app .</code></pre>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">go build -gcflags=<span class="string">&#x27;-S&#x27;</span> -o app .</span><br></pre></td></tr></table></figure>
 
 <p>在汇编中搜索 <code>deferproc</code>、<code>deferprocStack</code> 或 <code>deferreturn</code> 可以发现链表路径；找不到这些调用并不表示没有 defer，可能是 defer 已被 open-code 到函数退出路径。</p>
 <p><strong>阅读结论：</strong> defer 的语言语义由规范保证；“位图”“<code>_defer</code> 链表”“栈分配&#x2F;堆分配”和相关运行时函数名都是特定编译器与运行时版本的实现细节。性能分析或源码学习时应锁定 Go 版本，业务代码则不要依赖这些内部布局。</p>
-<h2 id="4-defer-的注意事项"><a href="#4-defer-的注意事项" class="headerlink" title="4. defer 的注意事项"></a>4. defer 的注意事项</h2><h3 id="参数在登记时求值"><a href="#参数在登记时求值" class="headerlink" title="参数在登记时求值"></a>参数在登记时求值</h3><pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;
-    n := <span class="number">1</span>
-    <span class="keyword">defer</span> fmt.Println(n)
-    n = <span class="number">2</span>
-&#125;</code></pre>
+<h2 id="4-defer-的注意事项"><a href="#4-defer-的注意事项" class="headerlink" title="4. defer 的注意事项"></a>4. defer 的注意事项</h2><h3 id="参数在登记时求值"><a href="#参数在登记时求值" class="headerlink" title="参数在登记时求值"></a>参数在登记时求值</h3><figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">example</span><span class="params">()</span></span> &#123;</span><br><span class="line">    n := <span class="number">1</span></span><br><span class="line">    <span class="keyword">defer</span> fmt.Println(n)</span><br><span class="line">    n = <span class="number">2</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里会打印 <code>1</code>。如果想在退出时读取最新值，使用闭包。</p>
-<h3 id="循环中的-defer-会等函数返回"><a href="#循环中的-defer-会等函数返回" class="headerlink" title="循环中的 defer 会等函数返回"></a>循环中的 defer 会等函数返回</h3><pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">process</span><span class="params">(paths []<span class="type">string</span>)</span></span> <span class="type">error</span> &#123;
-    <span class="keyword">for</span> _, path := <span class="keyword">range</span> paths &#123;
-        f, err := os.Open(path)
-        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;
-            <span class="keyword">return</span> err
-        &#125;
-        <span class="keyword">defer</span> f.Close() <span class="comment">// 所有文件会在 process 返回时才关闭</span>
-        _ = f
-    &#125;
-    <span class="keyword">return</span> <span class="literal">nil</span>
-&#125;</code></pre>
+<h3 id="循环中的-defer-会等函数返回"><a href="#循环中的-defer-会等函数返回" class="headerlink" title="循环中的 defer 会等函数返回"></a>循环中的 defer 会等函数返回</h3><figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">process</span><span class="params">(paths []<span class="type">string</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> _, path := <span class="keyword">range</span> paths &#123;</span><br><span class="line">        f, err := os.Open(path)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> err</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">defer</span> f.Close() <span class="comment">// 所有文件会在 process 返回时才关闭</span></span><br><span class="line">        _ = f</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>大量迭代时，这会让资源一直占用到整个函数结束。可以把每次迭代的工作放进单独函数，让该函数返回时及时执行 <code>Close</code>；或者在循环中显式处理关闭。</p>
 <h3 id="deferred-调用的返回值会被丢弃"><a href="#deferred-调用的返回值会被丢弃" class="headerlink" title="deferred 调用的返回值会被丢弃"></a>deferred 调用的返回值会被丢弃</h3><p>例如 <code>defer f.Close()</code> 不会自动把 <code>Close</code> 的错误合并到外层函数的返回错误中。如果关闭错误也必须报告，应使用闭包并明确更新命名返回值，或显式检查错误。</p>
-<h3 id="多个-defer-的顺序是反向的"><a href="#多个-defer-的顺序是反向的" class="headerlink" title="多个 defer 的顺序是反向的"></a>多个 defer 的顺序是反向的</h3><pre><code class="highlight go"><span class="keyword">defer</span> unlock()
-<span class="keyword">defer</span> closeFile()</code></pre>
+<h3 id="多个-defer-的顺序是反向的"><a href="#多个-defer-的顺序是反向的" class="headerlink" title="多个 defer 的顺序是反向的"></a>多个 defer 的顺序是反向的</h3><figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">defer</span> unlock()</span><br><span class="line"><span class="keyword">defer</span> closeFile()</span><br></pre></td></tr></table></figure>
 
 <p>退出时先执行 <code>closeFile()</code>，再执行 <code>unlock()</code>。登记顺序应与期望的清理顺序相匹配。</p>
 <h3 id="defer-不会自动捕获所有-panic"><a href="#defer-不会自动捕获所有-panic" class="headerlink" title="defer 不会自动捕获所有 panic"></a>defer 不会自动捕获所有 panic</h3><p>只有符合调用条件的 <code>recover</code> 才能停止当前 goroutine 的 panic 展开。不要把它当作跨 goroutine 的异常处理机制，也不要在没有明确恢复策略时吞掉 panic。</p>

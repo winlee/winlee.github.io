@@ -341,58 +341,12 @@
 </ol>
 <p>“优雅”不等于“无限等待”。没有超时的优雅退出，可能把发布流程卡死，最终由平台强制杀掉，效果还不如直接退出。</p>
 <h2 id="2-基础实现：信号-context"><a href="#2-基础实现：信号-context" class="headerlink" title="2. 基础实现：信号 + context"></a>2. 基础实现：信号 + context</h2><p>Go 标准库从 1.16 起提供 <code>signal.NotifyContext</code>，把信号转换为 context 取消，是最简洁的入口方式：</p>
-<pre><code class="highlight go"><span class="keyword">package</span> main
-
-<span class="keyword">import</span> (
-    <span class="string">&quot;context&quot;</span>
-    <span class="string">&quot;log&quot;</span>
-    <span class="string">&quot;os&quot;</span>
-    <span class="string">&quot;os/signal&quot;</span>
-    <span class="string">&quot;syscall&quot;</span>
-)
-
-<span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;
-    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-    <span class="keyword">defer</span> stop()
-
-    <span class="keyword">go</span> runServer()
-
-    &lt;-ctx.Done()
-    log.Println(<span class="string">&quot;收到退出信号，开始关闭&quot;</span>)
-    stop() <span class="comment">// 恢复信号默认行为，此后的信号会直接终止进程</span>
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;context&quot;</span></span><br><span class="line">    <span class="string">&quot;log&quot;</span></span><br><span class="line">    <span class="string">&quot;os&quot;</span></span><br><span class="line">    <span class="string">&quot;os/signal&quot;</span></span><br><span class="line">    <span class="string">&quot;syscall&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)</span><br><span class="line">    <span class="keyword">defer</span> stop()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">go</span> runServer()</span><br><span class="line"></span><br><span class="line">    &lt;-ctx.Done()</span><br><span class="line">    log.Println(<span class="string">&quot;收到退出信号，开始关闭&quot;</span>)</span><br><span class="line">    stop() <span class="comment">// 恢复信号默认行为，此后的信号会直接终止进程</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><code>os.Interrupt</code> 对应 <code>Ctrl+C</code>（<code>SIGINT</code>），<code>syscall.SIGTERM</code> 是 <code>kill</code> 与容器平台停止容器时发送的信号。两者都应该监听。</p>
 <p><code>stop()</code> 除了释放资源，还有一个实际作用：调用后信号处理恢复默认行为，用户在关闭卡住时再按一次 <code>Ctrl+C</code> 就能直接终止进程，不必另写强制退出逻辑。</p>
 <h2 id="3-HTTP-服务的优雅关闭"><a href="#3-HTTP-服务的优雅关闭" class="headerlink" title="3. HTTP 服务的优雅关闭"></a>3. HTTP 服务的优雅关闭</h2><p><code>http.Server.Shutdown</code> 会关闭监听器并等待活跃请求结束：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;
-    mux := http.NewServeMux()
-    mux.HandleFunc(<span class="string">&quot;/&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;
-        time.Sleep(<span class="number">2</span> * time.Second)
-        w.Write([]<span class="type">byte</span>(<span class="string">&quot;done&quot;</span>))
-    &#125;)
-
-    srv := &amp;http.Server&#123;Addr: <span class="string">&quot;:8080&quot;</span>, Handler: mux&#125;
-
-    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-        <span class="keyword">if</span> err := srv.ListenAndServe(); err != <span class="literal">nil</span> &amp;&amp; !errors.Is(err, http.ErrServerClosed) &#123;
-            log.Fatalf(<span class="string">&quot;listen: %v&quot;</span>, err)
-        &#125;
-    &#125;()
-
-    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-    <span class="keyword">defer</span> stop()
-    &lt;-ctx.Done()
-
-    shutdownCtx, cancel := context.WithTimeout(context.Background(), <span class="number">10</span>*time.Second)
-    <span class="keyword">defer</span> cancel()
-
-    <span class="keyword">if</span> err := srv.Shutdown(shutdownCtx); err != <span class="literal">nil</span> &#123;
-        log.Printf(<span class="string">&quot;优雅关闭超时: %v&quot;</span>, err)
-        _ = srv.Close() <span class="comment">// 兜底：直接断开剩余连接</span>
-    &#125;
-    log.Println(<span class="string">&quot;已退出&quot;</span>)
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    mux := http.NewServeMux()</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;/&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;</span><br><span class="line">        time.Sleep(<span class="number">2</span> * time.Second)</span><br><span class="line">        w.Write([]<span class="type">byte</span>(<span class="string">&quot;done&quot;</span>))</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    srv := &amp;http.Server&#123;Addr: <span class="string">&quot;:8080&quot;</span>, Handler: mux&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">if</span> err := srv.ListenAndServe(); err != <span class="literal">nil</span> &amp;&amp; !errors.Is(err, http.ErrServerClosed) &#123;</span><br><span class="line">            log.Fatalf(<span class="string">&quot;listen: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)</span><br><span class="line">    <span class="keyword">defer</span> stop()</span><br><span class="line">    &lt;-ctx.Done()</span><br><span class="line"></span><br><span class="line">    shutdownCtx, cancel := context.WithTimeout(context.Background(), <span class="number">10</span>*time.Second)</span><br><span class="line">    <span class="keyword">defer</span> cancel()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> err := srv.Shutdown(shutdownCtx); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        log.Printf(<span class="string">&quot;优雅关闭超时: %v&quot;</span>, err)</span><br><span class="line">        _ = srv.Close() <span class="comment">// 兜底：直接断开剩余连接</span></span><br><span class="line">    &#125;</span><br><span class="line">    log.Println(<span class="string">&quot;已退出&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>几个需要理解的行为：</p>
 <ul>
@@ -402,60 +356,17 @@
 <li><code>Shutdown</code> 与 <code>Close</code> 的区别是“等”与“断”，二者不可混用为同一个语义。</li>
 </ul>
 <h2 id="4-关闭顺序与多组件编排"><a href="#4-关闭顺序与多组件编排" class="headerlink" title="4. 关闭顺序与多组件编排"></a>4. 关闭顺序与多组件编排</h2><p>真实服务通常不止一个 HTTP Server，还有后台 worker、消息消费者、定时任务和数据库连接。合理的顺序是：</p>
-<pre><code class="highlight text">1. 关闭入口监听（HTTP / gRPC）
-2. 停止接收新任务（消费者停止拉取、任务队列停止投递）
-3. 等待存量任务完成（WaitGroup / 业务信号）
-4. 关闭下游连接（MQ、DB、缓存、HTTP 客户端）
-5. 退出</code></pre>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">1. 关闭入口监听（HTTP / gRPC）</span><br><span class="line">2. 停止接收新任务（消费者停止拉取、任务队列停止投递）</span><br><span class="line">3. 等待存量任务完成（WaitGroup / 业务信号）</span><br><span class="line">4. 关闭下游连接（MQ、DB、缓存、HTTP 客户端）</span><br><span class="line">5. 退出</span><br></pre></td></tr></table></figure>
 
 <p>一个可复用的写法是给每个组件定义统一的接口，再按顺序调用：</p>
-<pre><code class="highlight go"><span class="keyword">type</span> Component <span class="keyword">interface</span> &#123;
-    Name() <span class="type">string</span>
-    Shutdown(ctx context.Context) <span class="type">error</span>
-&#125;
-
-<span class="function"><span class="keyword">func</span> <span class="title">shutdownAll</span><span class="params">(ctx context.Context, components []Component)</span></span> &#123;
-    <span class="keyword">for</span> _, c := <span class="keyword">range</span> components &#123;
-        <span class="keyword">if</span> err := c.Shutdown(ctx); err != <span class="literal">nil</span> &#123;
-            log.Printf(<span class="string">&quot;关闭 %s 失败: %v&quot;</span>, c.Name(), err)
-        &#125;
-    &#125;
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Component <span class="keyword">interface</span> &#123;</span><br><span class="line">    Name() <span class="type">string</span></span><br><span class="line">    Shutdown(ctx context.Context) <span class="type">error</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">shutdownAll</span><span class="params">(ctx context.Context, components []Component)</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> _, c := <span class="keyword">range</span> components &#123;</span><br><span class="line">        <span class="keyword">if</span> err := c.Shutdown(ctx); err != <span class="literal">nil</span> &#123;</span><br><span class="line">            log.Printf(<span class="string">&quot;关闭 %s 失败: %v&quot;</span>, c.Name(), err)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>后台任务用 <code>WaitGroup</code> 等待：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">startWorker</span><span class="params">(ctx context.Context, wg *sync.WaitGroup)</span></span> &#123;
-    wg.Add(<span class="number">1</span>)
-    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-        <span class="keyword">defer</span> wg.Done()
-        <span class="keyword">for</span> &#123;
-            <span class="keyword">select</span> &#123;
-            <span class="keyword">case</span> &lt;-ctx.Done():
-                <span class="keyword">return</span>
-            <span class="keyword">case</span> job := &lt;-jobs:
-                process(job)
-            &#125;
-        &#125;
-    &#125;()
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">startWorker</span><span class="params">(ctx context.Context, wg *sync.WaitGroup)</span></span> &#123;</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> wg.Done()</span><br><span class="line">        <span class="keyword">for</span> &#123;</span><br><span class="line">            <span class="keyword">select</span> &#123;</span><br><span class="line">            <span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">            <span class="keyword">case</span> job := &lt;-jobs:</span><br><span class="line">                process(job)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>注意顺序不能反：如果先关数据库再停 worker，worker 可能在关闭过程中继续访问已经关闭的连接，产生大量错误日志。入口先停、数据源最后关，是基本纪律。</p>
 <h2 id="5-标准库里的机制"><a href="#5-标准库里的机制" class="headerlink" title="5. 标准库里的机制"></a>5. 标准库里的机制</h2><h3 id="5-1-signal-NotifyContext-做了什么"><a href="#5-1-signal-NotifyContext-做了什么" class="headerlink" title="5.1 signal.NotifyContext 做了什么"></a>5.1 <code>signal.NotifyContext</code> 做了什么</h3><p>源码中的实现很直接：</p>
-<pre><code class="highlight go"><span class="function"><span class="keyword">func</span> <span class="title">NotifyContext</span><span class="params">(parent context.Context, signals ...os.Signal)</span></span> (ctx context.Context, stop context.CancelFunc) &#123;
-    ctx, cancel := context.WithCancel(parent)
-    c := &amp;signalCtx&#123;Context: ctx, cancel: cancel, signals: signals&#125;
-    c.ch = <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)
-    Notify(c.ch, c.signals...)
-    <span class="keyword">if</span> ctx.Err() == <span class="literal">nil</span> &#123;
-        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;
-            <span class="keyword">select</span> &#123;
-            <span class="keyword">case</span> &lt;-c.ch:
-                c.cancel()
-            <span class="keyword">case</span> &lt;-c.Done():
-            &#125;
-        &#125;()
-    &#125;
-    <span class="keyword">return</span> c, c.stop
-&#125;</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NotifyContext</span><span class="params">(parent context.Context, signals ...os.Signal)</span></span> (ctx context.Context, stop context.CancelFunc) &#123;</span><br><span class="line">    ctx, cancel := context.WithCancel(parent)</span><br><span class="line">    c := &amp;signalCtx&#123;Context: ctx, cancel: cancel, signals: signals&#125;</span><br><span class="line">    c.ch = <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)</span><br><span class="line">    Notify(c.ch, c.signals...)</span><br><span class="line">    <span class="keyword">if</span> ctx.Err() == <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">            <span class="keyword">select</span> &#123;</span><br><span class="line">            <span class="keyword">case</span> &lt;-c.ch:</span><br><span class="line">                c.cancel()</span><br><span class="line">            <span class="keyword">case</span> &lt;-c.Done():</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;()</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> c, c.stop</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>关键点：</p>
 <ul>
@@ -505,22 +416,14 @@
 <li>宽限期（<code>terminationGracePeriodSeconds</code>）到期仍未退出，kubelet 发送 <code>SIGKILL</code>，进程立即死亡。</li>
 </ol>
 <p><code>preStop</code> 与 <code>SIGTERM</code> 是<strong>串行</strong>的：<code>preStop</code> 执行完毕才会发信号。宽限期从 Pod 开始终止时计时，<code>preStop</code> 里的 sleep 同样占用这段时间。</p>
-<pre><code class="highlight yaml"><span class="attr">lifecycle:</span>
-  <span class="attr">preStop:</span>
-    <span class="attr">exec:</span>
-      <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;sleep 5&quot;</span>]
-<span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></code></pre>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">lifecycle:</span></span><br><span class="line">  <span class="attr">preStop:</span></span><br><span class="line">    <span class="attr">exec:</span></span><br><span class="line">      <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;sleep 5&quot;</span>]</span><br><span class="line"><span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></span><br></pre></td></tr></table></figure>
 
 <p>上面这个配置意味着：应用真正可用于收尾的时间约为 25 秒，而不是 30 秒。</p>
 <h3 id="信号是发给-PID-1-的"><a href="#信号是发给-PID-1-的" class="headerlink" title="信号是发给 PID 1 的"></a>信号是发给 PID 1 的</h3><p>如果 entrypoint 写成 <code>sh -c &quot;./app&quot;</code> 而没有使用 <code>exec</code>，应用就不是 PID 1，<code>SIGTERM</code> 不会被转发，应用永远收不到信号，只能等 <code>SIGKILL</code>。这类问题的表现是”优雅退出代码写了但从不执行”。</p>
-<pre><code class="highlight dockerfile"><span class="comment"># 错误：shell 成为 PID 1，信号不会转发给 app</span>
-<span class="keyword">CMD</span><span class="language-bash"> ./app</span>
-
-<span class="comment"># 正确：exec 让 app 替换 shell，成为 PID 1</span>
-<span class="keyword">CMD</span><span class="language-bash"> [<span class="string">&quot;/app&quot;</span>]</span></code></pre>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line"><span class="comment"># 错误：shell 成为 PID 1，信号不会转发给 app</span></span><br><span class="line"><span class="keyword">CMD</span><span class="language-bash"> ./app</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 正确：exec 让 app 替换 shell，成为 PID 1</span></span><br><span class="line"><span class="keyword">CMD</span><span class="language-bash"> [<span class="string">&quot;/app&quot;</span>]</span></span><br></pre></td></tr></table></figure>
 
 <h3 id="镜像可以覆盖停止信号"><a href="#镜像可以覆盖停止信号" class="headerlink" title="镜像可以覆盖停止信号"></a>镜像可以覆盖停止信号</h3><p>Dockerfile 的 <code>STOPSIGNAL</code> 会改变运行时发送的终止信号。例如 nginx 官方镜像使用 <code>SIGQUIT</code> 做优雅退出：</p>
-<pre><code class="highlight dockerfile"><span class="keyword">STOPSIGNAL</span> SIGQUIT</code></pre>
+<figure class="highlight dockerfile"><table><tr><td class="code"><pre><span class="line"><span class="keyword">STOPSIGNAL</span> SIGQUIT</span><br></pre></td></tr></table></figure>
 
 <p>此时 Kubernetes 下发的就不是 <code>SIGTERM</code> 了。排查”信号处理没生效”时，先确认镜像声明的停止信号。</p>
 <h3 id="SIGINT-的定位"><a href="#SIGINT-的定位" class="headerlink" title="SIGINT 的定位"></a><code>SIGINT</code> 的定位</h3><p><code>SIGINT</code> 是终端里 <code>Ctrl+C</code> 触发的信号，Kubernetes <strong>不会</strong>发送它。本地开发时同时监听 <code>os.Interrupt</code> 和 <code>syscall.SIGTERM</code> 是常见做法，线上真正起作用的是 <code>SIGTERM</code>。</p>
@@ -532,19 +435,9 @@
 <p>需要强调的是：<code>SIGTERM</code> 的”等待”不是信号本身在等，而是<strong>进程捕获后主动延长了退出时间</strong>；<code>SIGKILL</code> 的”不等待”则是因为内核直接终止进程，用户态没有任何执行机会。</p>
 <h2 id="7-实践探讨与常见坑"><a href="#7-实践探讨与常见坑" class="headerlink" title="7. 实践探讨与常见坑"></a>7. 实践探讨与常见坑</h2><h3 id="超时设置要与平台对齐"><a href="#超时设置要与平台对齐" class="headerlink" title="超时设置要与平台对齐"></a>超时设置要与平台对齐</h3><p>优雅关闭的超时应当<strong>小于</strong>平台的强制终止时间。以 Kubernetes 为例，默认 <code>terminationGracePeriodSeconds</code> 是 30 秒，再减去 <code>preStop</code> 的耗时；如果 <code>Shutdown</code> 也按 30 秒等，进程很可能在收尾阶段被 <code>SIGKILL</code>，连日志都写不完。实践上留出余量，比如 10 到 20 秒。</p>
 <h3 id="二次信号：要么强制退出，要么恢复默认"><a href="#二次信号：要么强制退出，要么恢复默认" class="headerlink" title="二次信号：要么强制退出，要么恢复默认"></a>二次信号：要么强制退出，要么恢复默认</h3><p>两种常见策略：</p>
-<pre><code class="highlight go"><span class="comment">// 策略一：自己接管第二次信号</span>
-sigCh := <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)
-signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-&lt;-sigCh
-<span class="keyword">go</span> gracefulShutdown()
-&lt;-sigCh
-log.Println(<span class="string">&quot;收到第二次信号，强制退出&quot;</span>)
-os.Exit(<span class="number">1</span>)</code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 策略一：自己接管第二次信号</span></span><br><span class="line">sigCh := <span class="built_in">make</span>(<span class="keyword">chan</span> os.Signal, <span class="number">1</span>)</span><br><span class="line">signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)</span><br><span class="line">&lt;-sigCh</span><br><span class="line"><span class="keyword">go</span> gracefulShutdown()</span><br><span class="line">&lt;-sigCh</span><br><span class="line">log.Println(<span class="string">&quot;收到第二次信号，强制退出&quot;</span>)</span><br><span class="line">os.Exit(<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
 
-<pre><code class="highlight go"><span class="comment">// 策略二：NotifyContext + 提前 stop，交给系统默认行为</span>
-ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-&lt;-ctx.Done()
-stop() <span class="comment">// 之后再次 Ctrl+C 直接终止</span></code></pre>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 策略二：NotifyContext + 提前 stop，交给系统默认行为</span></span><br><span class="line">ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)</span><br><span class="line">&lt;-ctx.Done()</span><br><span class="line">stop() <span class="comment">// 之后再次 Ctrl+C 直接终止</span></span><br></pre></td></tr></table></figure>
 
 <p>不要两种情况混用：既没有 <code>stop()</code>，又用 <code>os.Exit</code> 之外的路径“等第二次信号”，会出现关闭逻辑无法被打断的僵局。</p>
 <h3 id="os-Exit-不会执行-defer"><a href="#os-Exit-不会执行-defer" class="headerlink" title="os.Exit 不会执行 defer"></a><code>os.Exit</code> 不会执行 defer</h3><p>在关闭逻辑中调用 <code>os.Exit</code> 会跳过所有 defer，包括 <code>defer cancel()</code>、<code>defer db.Close()</code>。要么先把清理显式做完再退出，要么只让 <code>main</code> 正常返回。</p>
