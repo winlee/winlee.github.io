@@ -43,6 +43,8 @@ body {
 
 .nav {
   margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -280,29 +282,43 @@ a {
   cursor: not-allowed;
 }
 
-/* 导航栏分类下拉 */
+/* 分类菜单作为覆盖层展开，不改变导航栏布局 */
+.header {
+  overflow: visible;
+}
+
 .nav-dropdown {
   position: relative;
 }
 
+.nav-dropdown details {
+  position: relative;
+}
+
 .nav-dropdown-toggle {
+  display: block;
+  list-style: none;
   cursor: pointer;
   color: var(--font-color);
 }
 
-.nav-dropdown:hover .nav-dropdown-toggle,
-.nav-dropdown:focus-within .nav-dropdown-toggle {
+.nav-dropdown-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.nav-dropdown details[open] .nav-dropdown-toggle {
   text-decoration: underline;
 }
 
 .nav-dropdown-menu {
-  display: none;
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: -12px;
+  display: block;
   min-width: 104px;
   margin: 0;
   padding: 6px 0;
+  list-style: none;
   background: var(--color-background);
   border: 1px solid var(--color-hr);
   border-radius: 6px;
@@ -310,9 +326,8 @@ a {
   z-index: 10000;
 }
 
-.nav-dropdown:hover .nav-dropdown-menu,
-.nav-dropdown:focus-within .nav-dropdown-menu {
-  display: block;
+.nav-dropdown details:not([open]) .nav-dropdown-menu {
+  display: none;
 }
 
 .nav .nav-dropdown-menu li {
