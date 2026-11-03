@@ -312,7 +312,7 @@
     
     
       <span class="meta-info-item post-min2read">
-        <i class="icon fas fa-clock"></i>&nbsp;<span>11 分钟</span>
+        <i class="icon fas fa-clock"></i>&nbsp;<span>10 分钟</span>
       </span>
     
     
@@ -330,10 +330,7 @@
           
 
           
-            <blockquote>
-<p>日期说明：本文按你的要求保留 2022-12-15 作为文章归档日期；“并发支持演进”部分会讨论之后的 Go 版本，不代表这些后续实现已在 2022 年发布。实现观察以 Go 1.25.12 为准，运行时细节属于实现而非语言规范。</p>
-</blockquote>
-<h2 id="1-Map-是什么"><a href="#1-Map-是什么" class="headerlink" title="1. Map 是什么"></a>1. Map 是什么</h2><p>Go 内建 <code>map</code> 是按键索引的无序集合。每个键对应至多一个值：</p>
+            <h2 id="1-Map-是什么"><a href="#1-Map-是什么" class="headerlink" title="1. Map 是什么"></a>1. Map 是什么</h2><p>Go 内建 <code>map</code> 是按键索引的无序集合。每个键对应至多一个值：</p>
 <figure class="highlight go"><table><tr><td class="code"><pre><span class="line">scores := <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;</span><br><span class="line">    <span class="string">&quot;Go&quot;</span>:     <span class="number">95</span>,</span><br><span class="line">    <span class="string">&quot;Rust&quot;</span>:   <span class="number">90</span>,</span><br><span class="line">    <span class="string">&quot;Python&quot;</span>: <span class="number">88</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">scores[<span class="string">&quot;Go&quot;</span>] = <span class="number">98</span></span><br><span class="line">value, ok := scores[<span class="string">&quot;Rust&quot;</span>]</span><br><span class="line"><span class="built_in">delete</span>(scores, <span class="string">&quot;Python&quot;</span>)</span><br></pre></td></tr></table></figure>
 
 <p>Map 是引用语义的数据结构。赋值会复制 map 值所持有的引用，而非复制所有键值对：</p>
